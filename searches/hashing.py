@@ -1,3 +1,4 @@
+import numpy as np
 from radbm.utils.generators import poisson_binomial_top_k_generator
 from radbm.searches.base import Search
 
@@ -18,7 +19,7 @@ class PoissonBinomialHashing(Search):
         return r.format(
             self.__class__.__name__,
             ', '.join(map(str, map(len, self.tables))),
-            ', '.join(['{:.1f}'.format(s) for s in self.get_buckets_avg_size()]),
+            ', '.join(['{:.2f}'.format(s) for s in self.get_buckets_avg_size()]),
             ', '.join(map(str, self.get_buckets_max_size())),
         )
         
