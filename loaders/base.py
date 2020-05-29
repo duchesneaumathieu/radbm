@@ -50,12 +50,11 @@ def locate_dataset_files(dataset, path, file):
     return paths
 
 class Loader(StateObj):
-    def __init__(self, name, mode, rng=np.random):
+    def __init__(self, mode, rng=np.random):
         modes = self.get_available_modes()
         if mode not in modes:
             msg = 'mode must be in {}, got {}'
             raise ValueError(msg.format(modes, mode))
-        self.name=name
         self.mode=mode
         self.rng=rng
         

@@ -70,3 +70,24 @@ def torch_cast(x):
     else: raise ValueError('can only cast floating or integer, got {}'.format(x.dtype))
     if torch.cuda.is_available(): x = x.cuda()
     return x
+
+def _fbeta_gamma_term(beta, log_q, log_s):
+    b2 = beta**2
+    log_b2 = np.log(b2)
+    c1 = np.log(1+b2) - log_b2
+    c2 = log_q + log_b2
+    return c1 - torch.nn.Softplus()(log_s-c2)
+
+def torch_negative_log_fbeta_loss(log_r_hats, log_s_hats, beta, log_q):
+    log_rho = log_r_hats.mean()
+    log_s_hat = torch_lme(log_s_hats)
+    log_g = _fbeta_gamma_term(beta, log_q, log_s_hat)
+    log_fbeta = log_rho + log_g
+    return -log_fbeta
+
+def positive_loss_adaptative_l2_reg(loss, ratio, values):
+    #model bad -> high loss -> high regularization
+    #model good -> low loss -> low regularization
+    reg = sum((v**2).sum() for v in values)
+    alpha = ratio*float(loss/reg)
+    return loss + alpha*reg

@@ -3,8 +3,8 @@ import gzip, pickle
 from radbm.loaders.base import Loader, locate_dataset_dirs, locate_dataset_files
 
 class Mnist(Loader):
-    def __init__(self, name, mode, rng=np.random, path=None):
-        super().__init__(name, mode, rng)
+    def __init__(self, mode, rng=np.random, path=None):
+        super().__init__(mode, rng)
         file_paths = locate_dataset_files('Mnist', path, 'mnist.pkl.gz')
         if len(file_paths) == 0: raise FileNotFoundError('could not locate mnist.pkl.gz')
         with gzip.open(file_paths[0], 'rb') as f:
@@ -28,10 +28,10 @@ class Mnist(Loader):
         return x, y
     
 class MnistClass(Mnist):
-    def __init__(self, sigma, name, mode, rng=np.random):
+    def __init__(self, sigma, mode, rng=np.random):
         if mode is not 'Class':
             raise NotImplementedError('Only Class mode is implemented for NoisyMnist')
-        super().__init__(name, mode, rng)
+        super().__init__(mode, rng)
         self.sigma=sigma
         
     def batch(self, size=None, index=None, replace=True):
@@ -41,10 +41,10 @@ class MnistClass(Mnist):
         return q, d, np.eye(size, dtype=np.uint8)
     
 class NoisyMnist(Mnist):
-    def __init__(self, sigma, name, mode, rng=np.random):
+    def __init__(self, sigma, mode, rng=np.random):
         if mode is not 'Relational':
             raise NotImplementedError('Only Relational mode is implemented for NoisyMnist')
-        super().__init__(name, mode, rng)
+        super().__init__(mode, rng)
         self.sigma=sigma
         
     def get_relation_prob(self):
