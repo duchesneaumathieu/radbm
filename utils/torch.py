@@ -91,3 +91,45 @@ def positive_loss_adaptative_l2_reg(loss, ratio, values):
     reg = sum((v**2).sum() for v in values)
     alpha = ratio*float(loss/reg)
     return loss + alpha*reg
+
+def torch_complex_polar(a, b):
+    #return r, theta
+    r = torch.sqrt(a**2 + b**2)
+    theta = torch.atan2(b, a)
+    return r, theta
+
+def torch_complex_log(a, b):
+    r, theta = torch_complex_polar(a, b)
+    return r.log(), theta #<-- cartesian coordinate of log(a+ib) = log(r) + i*theta
+
+def torch_complex_exp(a, b):
+    exp_a = a.exp()
+    return exp_a*torch.cos(b), exp_a*torch.sin(b) #Euler
+
+def torch_complex_prod(a, b, dim=None):
+    #use log space because addition of complex numbers is elementwise 
+    #(i.e. real with real and complex with complex)
+    if dim is None: dim = tuple(range(len(a.shape)))
+    a, b = torch_complex_log(a, b)
+    return torch_complex_exp(a.sum(dim=dim), b.sum(dim=dim))
+
+class PoissonBinomialSum(torch.nn.Module):
+    def __init__(self, n, roots_requires_grad=False):
+        super().__init__()
+        self.n = n
+        w = 2*np.pi/(n+1)
+        #use python imaginary arithemtic
+        roots = np.array([np.e**(w*l*1j) for l in range(n+1)])
+        roots_real = torch.tensor(roots.real, requires_grad=roots_requires_grad)
+        roots_imag = torch.tensor(roots.imag, requires_grad=roots_requires_grad)
+        self.register_buffer('roots_real', roots_real)
+        self.register_buffer('roots_imag', roots_imag)
+        
+    def forward(self, q):
+        q_view = q.view(1,self.n)
+        z_real = self.roots_real.view(self.n+1,1)*q_view - q_view + 1
+        z_imag = self.roots_imag.view(self.n+1,1)*q_view
+        x_real, x_imag = torch_complex_prod(z_real, z_imag, dim=1)
+        x = torch.stack([x_real, x_imag], dim=1)
+        pb = torch.fft(x,1)
+        return pb[:,0]/(self.n+1)
