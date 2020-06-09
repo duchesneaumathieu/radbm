@@ -8,6 +8,7 @@ def torch_maximum(*tensors):
 
 def torch_logsumexp(*tensors):
     maxes = torch_maximum(*tensors)
+    maxes = torch.where(maxes==-np.inf, torch.zeros_like(maxes), maxes)
     return sum((tensor - maxes).exp() for tensor in tensors).log() + maxes
 
 def torch_logsubexp(log_a, log_b):
@@ -40,15 +41,27 @@ def torch_max(tensor, dim=None, keepdims=False):
 def torch_lse(tensor, dim=None, keepdims=False):
     if dim is None: dim = tuple(range(tensor.dim()))
     maxes = torch_max(tensor, dim=dim, keepdims=True)
+    maxes = torch.where(maxes==-np.inf, torch.zeros_like(maxes), maxes)
     lse = (tensor - maxes).exp().sum(dim=dim, keepdim=True).log() + maxes
     if not keepdims:
-        dim = tuple(d+tensor.dim() if d < 0 else d for d in dim)
-        for d in sorted(dim, reverse=True): lse = lse.squeeze(dim=d)
+        if isinstance(dim, (tuple,list)):
+            dim = tuple(d+tensor.dim() if d < 0 else d for d in dim)
+            for d in sorted(dim, reverse=True): lse = lse.squeeze(dim=d)
+        else: lse = lse.squeeze(dim=dim)
     return lse
 
 def torch_lme(tensor, dim=None, keepdims=False):
     #log mean exp
     return torch_lse(tensor, dim, keepdims) - np.sum(np.log(tensor.shape))
+
+def torch_categorical_entropy(log_p, dim=-1, keepdims=False):
+    log_p = torch.where(log_p==-np.inf, torch.zeros_like(log_p), log_p)
+    return -(log_p.exp()*log_p).sum(dim=dim, keepdims=keepdims)
+
+def torch_multibernoulli_entropy(log_p0, log_p1, dim=-1, keepdims=False):
+    log_p0 = torch.where(log_p0==-np.inf, torch.zeros_like(log_p0), log_p0)
+    log_p1 = torch.where(log_p1==-np.inf, torch.zeros_like(log_p1), log_p1)
+    return -(log_p0.exp()*log_p0 +log_p1.exp()*log_p1).sum(dim=dim, keepdims=keepdims)
     
 def params_to_buffer(module):
     module._buffers.update(module._parameters)
