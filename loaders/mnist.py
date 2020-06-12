@@ -28,7 +28,7 @@ class Mnist(Loader):
         return self.x.data[ids], self.y.data[ids]
     
 class ClassMnist(IRLoader):
-    def __init__(self, sigma, path=None, mode='class_relation', which='train', backend='numpy', device='cpu', rng=np.random):
+    def __init__(self, sigma=0, path=None, mode='class_relation', which='train', backend='numpy', device='cpu', rng=np.random):
         super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
         if mode is not 'relational_matrix':
             raise NotImplementedError('mode={} not implemented yet'.format(mode))
@@ -78,7 +78,7 @@ class ClassMnist(IRLoader):
         return x1, x2, self.eye.data
     
 class NoisyMnist(IRLoader):
-    def __init__(self, sigma, path=None, mode='relational_matrix', which='train', backend='numpy', device='cpu', rng=np.random):
+    def __init__(self, sigma=0.2, path=None, mode='relational_matrix', which='train', backend='numpy', device='cpu', rng=np.random):
         super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
         if mode is not 'relational_matrix':
             raise NotImplementedError('mode={} not implemented yet'.format(mode))
