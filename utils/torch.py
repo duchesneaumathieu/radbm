@@ -3,6 +3,23 @@ import numpy as np
 from functools import reduce
 from collections import OrderedDict
 
+def torch_hamming(code1, code2, dim=-1, keepdims=False):
+    if isinstance(dim, int): dim = (dim,)
+    n1 = int(np.prod([code1.shape[d] for d in dim]))
+    n2 = int(np.prod([code2.shape[d] for d in dim]))
+    if n1 != n2: raise ValueError()
+    c = (code1==code2).sum(dim=dim, keepdims=keepdims)
+    return n1 - c
+
+def torch_soft_hamming(v, w, dim=-1, keepdims=False):
+    #expecting values in [-1,1]
+    if isinstance(dim, int): dim = (dim,)
+    n1 = int(np.prod([v.shape[d] for d in dim]))
+    n2 = int(np.prod([w.shape[d] for d in dim]))
+    if n1 != n2: raise ValueError()
+    dot = (v*w).sum(dim=dim, keepdims=keepdims)
+    return .5*(n1 - dot)
+
 def torch_maximum(*tensors):
     return reduce(torch.max, tensors)
 
@@ -75,15 +92,6 @@ def buffer_no_grad(module):
     for child in module._modules.values():
         buffer_no_grad(child)
 
-def torch_cast(x):
-    if issubclass(x.dtype.type, np.floating):
-        x = torch.tensor(x, dtype=torch.float32)
-    elif issubclass(x.dtype.type, np.integer):
-        x = torch.tensor(x, dtype=torch.int64)
-    else: raise ValueError('can only cast floating or integer, got {}'.format(x.dtype))
-    if torch.cuda.is_available(): x = x.cuda()
-    return x
-
 def _fbeta_gamma_term(beta, log_q, log_s):
     b2 = beta**2
     log_b2 = np.log(b2)
@@ -146,3 +154,92 @@ class PoissonBinomialSum(torch.nn.Module):
         x = torch.stack([x_real, x_imag], dim=1)
         pb = torch.fft(x,1)
         return pb[:,0]/(self.n+1)
+    
+def torch_cast_cpu(x, max_floating_point=32):
+    if not isinstance(x, np.ndarray): return torch.tensor(x)
+    dtype = x.dtype.type
+    if max_floating_point == 64 and issubclass(dtype, np.float128):
+        return torch.tensor(x, dtype=torch.float64)
+    if max_floating_point == 32 and issubclass(dtype, (np.float128, np.float64)):
+        return torch.tensor(x, dtype=torch.float32)
+    if max_floating_point == 16 and issubclass(dtype, (np.float128, np.float64, np.float32)):
+        return torch.tensor(x, dtype=torch.float16)
+    return torch.tensor(x)
+
+def torch_cast(x, max_floating_point=32):
+    x = torch_cast_cpu(x, max_floating_point=max_floating_point)
+    if torch.cuda.is_available(): x = x.cuda()
+    return x
+
+class TorchNumpyRNG(object):
+    def __init__(self, rng=np.random):
+        self.rng=rng
+        self.device='cpu'
+        self.backend='numpy'
+        self.numpy()
+        
+    def apply_switch(self, wrap):
+        bypass = {'seed', 'get_state', 'set_state'}
+        for attr in np.random.__all__:
+            if attr in bypass: setattr(self, attr, getattr(self.rng, attr))
+            elif hasattr(self.rng, attr) and callable(getattr(self.rng, attr)):
+                setattr(self, attr, wrap(getattr(self.rng, attr)))
+    
+    def torch_cpu_wrap(self, f):
+        def wrapped(*args, **kwargs):
+            a = f(*args, **kwargs)
+            return torch_cast_cpu(a)
+        return wrapped
+    
+    def torch_cuda_wrap(self, f):
+        def wrapped(*args, **kwargs):
+            a = f(*args, **kwargs)
+            return torch_cast(a)
+        return wrapped
+    
+    def numpy_cpu_wrap(self, f):
+        return f
+    
+    def torch(self):
+        if self.device=='cpu':
+            self.apply_switch(self.torch_cpu_wrap)
+        elif self.device=='cuda':
+            self.apply_switch(self.torch_cuda_wrap)
+        self.backend = 'torch'
+        return self
+    
+    def numpy(self):
+        if self.device=='cuda':
+            raise ValueError('cannot use numpy backend with cuda, use rng.cpu() first')
+        self.apply_switch(self.numpy_cpu_wrap)
+        self.backend = 'numpy'
+        return self
+    
+    def cpu(self):
+        if self.backend=='numpy':
+            self.apply_switch(self.numpy_cpu_wrap)
+        elif self.backend=='torch':
+            self.apply_switch(self.torch_cpu_wrap)
+        self.device = 'cpu'
+        return self
+    
+    def cuda(self):
+        if self.backend=='numpy':
+            raise ValueError('cannot use cuda with numpy backend, use rng.torch() first')
+        self.apply_switch(self.torch_cuda_wrap)
+        self.device = 'cuda'
+        return self
+    
+    def get_state_hash(self):
+        s = self.get_state()
+        #don't hash string (i.e. s[0]) since string's hash are salted at each session
+        #s[0] is always 'MT19937' anyway
+        return hash(tuple(s[1])+s[2:])
+    
+    def __repr__(self):
+        s = 'TorchNumpyRNG\nBackend: [{} ({})]\nState\'s hash: {}'
+        return s.format(
+            self.backend,
+            self.device,
+            self.get_state_hash()
+        )

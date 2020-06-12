@@ -1,62 +1,64 @@
 import numpy as np
-import gzip, pickle
-from radbm.loaders.base import Loader, locate_dataset_dirs, locate_dataset_files
+import gzip, pickle, torch
+from radbm.loaders.base import Loader, IRLoader, locate_dataset_dirs, locate_dataset_files
 
+def mnist_loader(path=None):
+    file_paths = locate_dataset_files('Mnist', path, 'mnist.pkl.gz')
+    if len(file_paths) == 0: raise FileNotFoundError('could not locate mnist.pkl.gz')
+    with gzip.open(file_paths[0], 'rb') as f:
+        train_xy, valid_xy, test_xy = pickle.load(f, encoding='latin1')
+    return train_xy, valid_xy, test_xy
+    
 class Mnist(Loader):
-    def __init__(self, mode, rng=np.random, path=None):
-        super().__init__(mode, rng)
-        file_paths = locate_dataset_files('Mnist', path, 'mnist.pkl.gz')
-        if len(file_paths) == 0: raise FileNotFoundError('could not locate mnist.pkl.gz')
-        with gzip.open(file_paths[0], 'rb') as f:
-            self.train_xy, self.valid_xy, self.test_xy = pickle.load(f, encoding='latin1')
-            self.train_x, self.train_y = self.train_xy
-            self.valid_x, self.valid_y = self.valid_xy
-            self.test_x, self.test_y = self.test_xy
-            
-        self.train()
-        
-    def train(self): self.data_x, self.data_y = self.train_xy; return self
-    def valid(self): self.data_x, self.data_y = self.valid_xy; return self
-    def test(self): self.data_x, self.data_y = self.test_xy; return self
+    def __init__(self, path=None, which='train', backend='numpy', device='cpu', rng=np.random):
+        super().__init__(which=which, backend=backend, device=device, rng=rng)
+        train_xy, valid_xy, test_xy = mnist_loader(path)
+        for which, (x, y) in [('train', train_xy), ('valid', valid_xy), ('test', train_xy)]:
+            self.register_switch('{}_x'.format(which), x)
+            self.register_switch('{}_y'.format(which), y)
+            x = getattr(self, '{}_x'.format(which)) #retrieve the TorchNumpy
+            y = getattr(self, '{}_y'.format(which)) #retrieve the TorchNumpy
+            setattr(self, '{}_group'.format(which), {'x':x, 'y':y})
+        getattr(self, self.which)()
         
     def batch(self, size=None, index=None, replace=True):
         if index is not None or not replace:
             raise NotImplementedError('not implemented yet')
-        ids = self.rng.randint(0, len(self.data_y), size)
-        x = self.data_x[ids]
-        y = self.data_y[ids]
-        return x, y
+        ids = self.rng.randint(0, len(self.y.data), size)
+        return self.x.data[ids], self.y.data[ids]
     
-class MnistClass(Mnist):
-    def __init__(self, sigma, mode, rng=np.random):
-        if mode is not 'Class':
-            raise NotImplementedError('Only Class mode is implemented for NoisyMnist')
-        super().__init__(mode, rng)
-        self.sigma=sigma
+class ClassMnist(IRLoader):
+    def __init__(self, sigma, path=None, mode='class_relation', which='train', backend='numpy', device='cpu', rng=np.random):
+        super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
+        if mode is not 'relational_matrix':
+            raise NotImplementedError('mode={} not implemented yet'.format(mode))
+        self.sigma = sigma
+        train_xy, valid_xy, test_xy = mnist_loader(path)
+        for which, (x, y) in [('train', train_xy), ('valid', valid_xy), ('test', train_xy)]:
+            self.register_switch('{}_x'.format(which), x[y.argsort()])
+            jump = np.arange(0,len(x),len(x)//10) #jump always on np since it is for indexing
+            x = getattr(self, '{}_x'.format(which)) #retrieve the TorchNumpy
+            setattr(self, '{}_group'.format(which), {'x':x, 'jump':jump})
+        self.register_switch('eye', np.eye(10, dtype=np.bool))
+        getattr(self, self.which)()
         
-    def batch(self, size=None, index=None, replace=True):
-        x, y = super().batch(size, index, replace)
-        q = x + self.rng.normal(0, self.sigma, x.shape)
-        d = x + self.rng.normal(0, self.sigma, x.shape)
-        return q, d, np.eye(size, dtype=np.uint8)
-    
-class NoisyMnist(Mnist):
-    def __init__(self, sigma, mode, rng=np.random):
-        if mode is not 'Relational':
-            raise NotImplementedError('Only Relational mode is implemented for NoisyMnist')
-        super().__init__(mode, rng)
-        self.sigma=sigma
+    def get_available_modes(self):
+        return {
+            'class_relation',
+            'relational_triplets',
+            'relational_matrix'
+        }
         
     def get_relation_prob(self):
-        return 1/len(self.data_x)
+        return 1/10
     
     def get_relation_log_prob(self):
-        return -np.log(len(self.data_x))
+        return -np.log(10)
         
     def build_any(self, size=None, index=None, replace=True):
         if size is not None or replace:
             raise NotImplementedError('not implemented yet')
-        x = self.data_x if index is None else self.data_x[index]
+        x = self.x.data if index is None else self.x.data[index]
         return x + self.rng.normal(0, self.sigma, x.shape)
     
     def build_queries(self, size=None, index=None, replace=True):
@@ -66,7 +68,60 @@ class NoisyMnist(Mnist):
         return self.build_any(size, index, replace) #because the tasks is symmetric
     
     def batch(self, size=None, index=None, replace=True):
-        x, y = super().batch(size, index, replace)
+        if size != 10: raise NotImplementedError('batch size != 10 not supported')
+        x = self.x.data
+        ids1 = self.rng.rng.randint(0, len(x)//10, size) + self.jump
+        ids2 = self.rng.rng.randint(0, len(x)//10, size) + self.jump
+        x1, x2 = x[ids1], x[ids2]
+        x1 = x1 + self.rng.normal(0, self.sigma, x1.shape)
+        x2 = x2 + self.rng.normal(0, self.sigma, x2.shape)
+        return x1, x2, self.eye.data
+    
+class NoisyMnist(IRLoader):
+    def __init__(self, sigma, path=None, mode='relational_matrix', which='train', backend='numpy', device='cpu', rng=np.random):
+        super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
+        if mode is not 'relational_matrix':
+            raise NotImplementedError('mode={} not implemented yet'.format(mode))
+        self.sigma = sigma
+        train_xy, valid_xy, test_xy = mnist_loader(path)
+        for which, (x, y) in [('train', train_xy), ('valid', valid_xy), ('test', train_xy)]:
+            self.register_switch('{}_x'.format(which), x)
+            x = getattr(self, '{}_x'.format(which)) #retrieve the TorchNumpy
+            setattr(self, '{}_group'.format(which), {'x':x})
+        getattr(self, self.which)()
+    
+    def get_available_modes(self):
+        return {
+            'relational_pairs', #(x,k,r)
+            'relational_triplets', #(x, pos_x, neg_x)
+            'relational_matrix', #(xs, ks, R)
+        }
+    
+    def get_relation_prob(self):
+        return 1/len(self.x.data)
+    
+    def get_relation_log_prob(self):
+        return -np.log(len(self.x.data))
+        
+    def build_any(self, size=None, index=None, replace=True):
+        if size is not None or replace:
+            raise NotImplementedError('not implemented yet')
+        x = self.x.data if index is None else self.x.data[index]
+        return x + self.rng.normal(0, self.sigma, x.shape)
+    
+    def build_queries(self, size=None, index=None, replace=True):
+        return self.build_any(size, index, replace) #because the tasks is symmetric
+    
+    def build_documents(self, size=None, index=None, replace=True):
+        return self.build_any(size, index, replace) #because the tasks is symmetric
+    
+    def batch(self, size=None, index=None, replace=True):
+        if index is not None or not replace:
+            raise ValueError('not implemented yet')
+        if size is None: size = len(self.x.data)
+        ids = self.rng.rng.randint(0, len(self.x.data), size)
+        x = self.x.data[ids]
         q = x + self.rng.normal(0, self.sigma, x.shape)
         d = x + self.rng.normal(0, self.sigma, x.shape)
-        return q, d, np.eye(size, dtype=np.uint8)
+        r = self.dynamic_cast(np.eye(size, dtype=np.bool))
+        return q, d, r
