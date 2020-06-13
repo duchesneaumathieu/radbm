@@ -7,10 +7,10 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install coveralls
-  - pip install coverage
 
 script:
-  - coverage run -m unittest testing
+  - coverage run -m unittest -v testing
+  - coverage report
   
 after_success:
   - coveralls
