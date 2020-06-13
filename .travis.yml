@@ -9,7 +9,7 @@ install:
   - pip install coveralls
 
 script:
-  - coverage run -m unittest -v testing
+  - coverage run --source=radbm -m unittest -v testing
   - coverage report
   
 after_success:
