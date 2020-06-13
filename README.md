@@ -1,2 +1,2 @@
-# radbm [![Build Status](https://travis-ci.com/duchesneaumathieu/radbm.svg?branch=master)](https://travis-ci.com/duchesneaumathieu/radbm) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+# radbm [![Build Status](https://travis-ci.com/duchesneaumathieu/radbm.svg?branch=master)](https://travis-ci.com/duchesneaumathieu/radbm) [![Coverage Status](https://coveralls.io/repos/github/duchesneaumathieu/radbm/badge.svg?branch=master)](https://coveralls.io/github/duchesneaumathieu/radbm?branch=master) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 Rapid Access Database Benchmark
