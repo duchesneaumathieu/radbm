@@ -1,4 +1,10 @@
-# radbm 
-[![Documentation Status](https://readthedocs.org/projects/radbm/badge/?version=latest)](https://radbm.readthedocs.io/en/latest/?badge=latest) [![Build Status](https://travis-ci.com/duchesneaumathieu/radbm.svg?branch=master)](https://travis-ci.com/duchesneaumathieu/radbm) [![Coveralls github](https://img.shields.io/coveralls/github/duchesneaumathieu/radbm)](https://coveralls.io/github/duchesneaumathieu/radbm?branch=master) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![PyPI](https://img.shields.io/pypi/v/radbm)](https://pypi.org/project/radbm/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/radbm)](https://pypi.org/project/radbm/) [![Libraries.io SourceRank](https://img.shields.io/librariesio/sourcerank/pypi/radbm)](https://libraries.io/pypi/radbm)
+# radbm [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Documentation Status](https://readthedocs.org/projects/radbm/badge/?version=latest)](https://radbm.readthedocs.io/en/latest/?badge=latest)
+[![Build Status](https://travis-ci.com/duchesneaumathieu/radbm.svg?branch=master)](https://travis-ci.com/duchesneaumathieu/radbm)
+[![Coveralls github](https://img.shields.io/coveralls/github/duchesneaumathieu/radbm)](https://coveralls.io/github/duchesneaumathieu/radbm?branch=master)
+
+[![PyPI](https://img.shields.io/pypi/v/radbm)](https://pypi.org/project/radbm/)
+[![Libraries.io SourceRank](https://img.shields.io/librariesio/sourcerank/pypi/radbm)](https://libraries.io/pypi/radbm)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/radbm)](https://pypi.org/project/radbm/)
 
 Rapid Access Database Benchmark
