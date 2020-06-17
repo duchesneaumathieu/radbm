@@ -52,7 +52,7 @@ def least_k_subset_sum_generator(values, k=None):
     for items in least_k_subsortedset_sum_generator(values, k):
         yield tuple(perm[i] for i in items)
         
-def poisson_binomial_top_k_generator(log_probs, k=None):
+def multi_bernoulli_top_k_generator(log_probs, k=None):
     log_probs = np.array(log_probs)
     top1 = [0 for i in range(len(log_probs))]
     values = np.log(1-np.exp(log_probs))-log_probs

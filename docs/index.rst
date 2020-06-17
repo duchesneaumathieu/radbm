@@ -9,6 +9,9 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.utils.os
    :members:
 
+.. automodule:: radbm.utils.stats.hypergeometric
+   :members:
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
