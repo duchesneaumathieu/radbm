@@ -17,8 +17,8 @@ def hypergeometric(N, K):
     K : int
         The number of white marbles in the urn
         
-    Output
-    ------
+    Returns
+    -------
     P : numpy.ndarray
         P[i, j] is the probability that with i samples without replacement
         we select j white marbles. P.shape is (N+1, K+1)
@@ -62,8 +62,8 @@ def superdupergeometric(N, K):
     K : int
         The number of white marbles in the urn
         
-    Output
-    ------
+    Returns
+    -------
     SP : numpy.ndarray
         SP[i, j] is the probability that it requires i samples without replacement
         to select j white marbles. SP.shape is (N+1, K+1)
@@ -106,8 +106,8 @@ def superdupergeometric_expectations(N, K):
     K : int
         The number of white marbles in the urn
         
-    Output
-    ------
+    Returns
+    -------
     ESP : numpy.ndarray
         ESP[k] is the expected number of samples without replacement
         requires to get k white marbles. ESP.shape is (K+1,)
