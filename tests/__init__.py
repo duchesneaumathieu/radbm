@@ -3,3 +3,4 @@ from .utils_stats import (
     Generators,
     Hypergeometric
 )
+from .utils_time import TestChronometer
