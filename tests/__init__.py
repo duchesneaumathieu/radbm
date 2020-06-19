@@ -4,3 +4,4 @@ from .utils_stats import (
     Hypergeometric
 )
 from .utils_time import TestChronometer
+from .metrics_oracle import TestOracleMetric
