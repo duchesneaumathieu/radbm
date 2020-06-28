@@ -7,7 +7,7 @@ install:
   - pip install -r requirements.txt
   - pip install coveralls
 script:
-  - coverage run --source=radbm -m unittest -v tests
+  - coverage run --source=radbm -m unittest -v radbm.tests
   - coverage report
 after_success:
   - coveralls
