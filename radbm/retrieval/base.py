@@ -104,35 +104,49 @@ class Retrieval(StateObj):
             raise NotImplementedError('search or batch_search need to be overridden')
         return [self.search(q, *args, **kwargs) for q in queries]
     
-    def itersearch(self, query):
+    def itersearch(self, query, *args, **kwargs):
         """
-        itersearch should be overridden. This should be a generator
-        of the index.
+        Default generator that yields index one at a time.
         
         Parameters
         ----------
             query : numpy.ndarray or torch.Tensor
+            *args
+                pass to batch_itersearch (see batch_itersearch for more details)
+            **kwargs
+                pass to batch_itersearch (see batch_itersearch for more details)
             
         Yields
         ------
             index
         """
-        raise NotImplementedError('itersearch need to be overridden')
+        if type(self).batch_itersearch == Retrieval.batch_itersearch:
+            raise NotImplementedError('itersearch or batch_itersearch need to be overridden')
+        for indexes in self.batch_itersearch(query, *args, **kwargs):
+            for index in indexes:
+                yield index
         
-    def batch_itersearch(self, query):
+    def batch_itersearch(self, query, *args, **kwargs):
         """
-        itersearch should be overridden. This should be a generator
-        of the batch of index. This should not be confused with the other
-        batch_* methods as this take only a single query (not a batch of queries)
-        and generate batch of indexes.
+        Default generator that yields indexes in batch of one. This
+        should not be confused with the other batch_* methods as this
+        take only a single query (not a batch of queries) but generates
+        a batch of indexes.
         
         Parameters
         ----------
             query : numpy.ndarray or torch.Tensor
+            *args
+                pass to itersearch (see itersearch for more details)
+            **kwargs
+                pass to itersearch (see itersearch for more details)
             
         Yields
         ------
             batch_index : set or list of index
                 A list should indicate that the batch is ordered.
         """
-        raise NotImplementedError('batch_itersearch need to be overridden')
+        if type(self).itersearch == Retrieval.itersearch:
+            raise NotImplementedError('itersearch or batch_itersearch need to be overridden')
+        for index in self.itersearch(query, *args, **kwargs):
+            yield [index]

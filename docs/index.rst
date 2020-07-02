@@ -6,6 +6,15 @@
 Welcome to radbm's documentation!
 =================================
 
+.. automodule:: radbm.retrieval.base
+   :members:
+
+.. automodule:: radbm.retrieval.hashing
+   :members:
+
+.. automodule:: radbm.retrieval.gridsearch
+   :members:
+
 .. automodule:: radbm.utils.os
    :members:
 
