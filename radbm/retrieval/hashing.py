@@ -62,6 +62,28 @@ class MultiBernoulliHashTables(Retrieval):
             ', '.join(['{:.2f}'.format(s) for s in self.get_buckets_avg_size()]),
             ', '.join(map(str, self.get_buckets_max_size())),
         )
+    
+    def _get_generator(self, log_probs, k):
+        """
+        Parameters
+        ----------
+        log_probs : numpy.ndarray (ndim == 1 or 2)
+            If ndim==1: The Multi-Bernoulli distribution parametrized in log probabilities
+            If ndim==2: len(log_probs) should be 2. The first element should be log
+            probabilities that bits are zero and the second element should be the log
+            probabilities that bits are one. This is for numerical stability
+            (i.e. when probability are too close to 1)
+        k : int
+            The number of outcomes to generates
+        """
+        if log_probs.ndim==1:
+            return multi_bernoulli_top_k_generator(log_probs, k=k)
+        elif log_probs.ndim==2:
+            log_probs0, log_probs1 = log_probs
+            return multi_bernoulli_top_k_generator(log_probs0, log_probs1, k=k)
+        else:
+            msg = 'log_probs.ndim should be 1 or 2, got {}'
+            raise ValueError(msg.format(log_probs.ndim))
         
     def insert(self, log_probs, i):
         """
@@ -71,12 +93,16 @@ class MultiBernoulliHashTables(Retrieval):
         
         Parameters
         ----------
-        log_probs : numpy.ndarray
-            The Multi-Bernoulli distribution parametrized in log probabilities
+        log_probs : numpy.ndarray (ndim == 1 or 2)
+            If ndim==1: The Multi-Bernoulli distribution parametrized in log probabilities
+            If ndim==2: len(log_probs) should be 2. The first element should be log
+            probabilities that bits are zero and the second element should be the log
+            probabilities that bits are one. This is for numerical stability
+            (i.e. when probability are too close to 1)
         i : hashable (e.g. int or tuple)
             The index of the document
         """
-        gen = multi_bernoulli_top_k_generator(log_probs, k=self.ntables)
+        gen = self._get_generator(log_probs, self.ntables)
         for n, bits in enumerate(gen):
             table = self.tables[n]
             if bits in table: table[bits].add(i)
@@ -90,8 +116,12 @@ class MultiBernoulliHashTables(Retrieval):
         
         Parameters
         ----------
-        log_probs : numpy.ndarray
-            The Multi-Bernoulli distribution parametrized in log probabilities.
+        log_probs : numpy.ndarray (ndim == 1 or 2)
+            If ndim==1: The Multi-Bernoulli distribution parametrized in log probabilities
+            If ndim==2: len(log_probs) should be 2. The first element should be log
+            probabilities that bits are zero and the second element should be the log
+            probabilities that bits are one. This is for numerical stability
+            (i.e. when probability are too close to 1)
         nlookups : int, optional
             The number of top outcome to uses for searching. If not specified
             the default self.nlookups is used.
@@ -118,8 +148,12 @@ class MultiBernoulliHashTables(Retrieval):
 
         Parameters
         ----------
-        log_probs : np.ndarray
-            The Multi-Bernoulli distribution parametrized in log probabilities.
+        log_probs : numpy.ndarray (ndim == 1 or 2)
+            If ndim==1: The Multi-Bernoulli distribution parametrized in log probabilities
+            If ndim==2: len(log_probs) should be 2. The first element should be log
+            probabilities that bits are zero and the second element should be the log
+            probabilities that bits are one. This is for numerical stability
+            (i.e. when probability are too close to 1)
         nlookups : int, optional
             The upper limit to generate the next most probable outcomes. Not to
             be confused with the number of item generated. By default, generates
@@ -130,7 +164,7 @@ class MultiBernoulliHashTables(Retrieval):
         indexes : set
             The newly found indexes
         """
-        for bits in multi_bernoulli_top_k_generator(log_probs, k=nlookups):
+        for bits in self._get_generator(log_probs, nlookups):
             for table in self.tables:
                 if bits in table:
                     yield table[bits]

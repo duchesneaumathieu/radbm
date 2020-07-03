@@ -26,6 +26,12 @@ class TestMultiBernoulliHashTables(unittest.TestCase):
         self.assertEqual(mbht.get_buckets_avg_size(), [1,1,1])
         self.assertEqual(mbht.get_buckets_max_size(), [1,1,1])
         
+    def test_get_generator_error(self):
+        ndim3 = np.zeros((1,2,3))
+        mbht = MultiBernoulliHashTables(3, 2)
+        with self.assertRaises(ValueError):
+            mbht.insert(ndim3, 1)
+        
     def test_batch_itersearch(self):
         expected0 = [
             {0}, #with [0, 0, 1] -> {0}, {}, {},
@@ -44,6 +50,14 @@ class TestMultiBernoulliHashTables(unittest.TestCase):
         self.assertEqual(result0, expected0)
         self.assertEqual(result1, expected1)
         
+        #given log_probs1
+        log_probs1 = np.log(1-np.exp(self.qurs_log_probs))
+        log_probs = np.stack([self.qurs_log_probs, log_probs1], axis=1)
+        result0 = list(mbht.batch_itersearch(self.qurs_log_probs[0], nlookups=2))
+        result1 = list(mbht.batch_itersearch(self.qurs_log_probs[1], nlookups=2))
+        self.assertEqual(result0, expected0)
+        self.assertEqual(result1, expected1)
+        
     def test_batch_search(self):
         expected = [
             {0}, #for query 0
@@ -52,6 +66,12 @@ class TestMultiBernoulliHashTables(unittest.TestCase):
         mbht = MultiBernoulliHashTables(3, 2)
         mbht.batch_insert(self.docs_log_probs, self.indexes)
         result = mbht.batch_search(self.qurs_log_probs, nlookups=2)
+        self.assertEqual(result, expected)
+        
+        #given log_probs1
+        log_probs1 = np.log(1-np.exp(self.qurs_log_probs))
+        log_probs = np.stack([self.qurs_log_probs, log_probs1], axis=1)
+        result = list(mbht.batch_search(log_probs, nlookups=2))
         self.assertEqual(result, expected)
         
     def test_state(self):

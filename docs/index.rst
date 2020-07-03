@@ -21,6 +21,9 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.utils.time.chronometer
    :members:
 
+.. automodule:: radbm.utils.stats.generators
+   :members:
+
 .. automodule:: radbm.utils.stats.hypergeometric
    :members:
 
