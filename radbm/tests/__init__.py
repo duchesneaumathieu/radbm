@@ -1,3 +1,5 @@
+from .utils import Test_unique_list
+from .utils_fetch import Test_fetch_file
 from .utils_torch import TorchCast
 from .utils_stats import (
     Test_least_k_subset_sum_generator,

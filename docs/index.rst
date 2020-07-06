@@ -15,7 +15,16 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.retrieval.gridsearch
    :members:
 
+.. automodule:: radbm.utils
+   :members:
+
 .. automodule:: radbm.utils.os
+   :members:
+
+.. automodule:: radbm.utils.gdrive.download
+   :members:
+
+.. automodule:: radbm.utils.fetch
    :members:
 
 .. automodule:: radbm.utils.time.chronometer
