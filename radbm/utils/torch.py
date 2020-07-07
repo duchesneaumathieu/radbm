@@ -243,3 +243,33 @@ class TorchNumpyRNG(object):
             self.device,
             self.get_state_hash()
         )
+    
+class TorchNumpy(object):
+    def __init__(self, data, backend, device):
+        self.backend = backend
+        self.device = device
+        if backend not in {'numpy', 'torch'}:
+            raise ValueError('backend must be numpy or torch, got {}'.format(backend))
+            
+        if backend=='numpy' and isinstance(data, torch.Tensor):
+            data = data.detach().cpu().numpy()
+        elif backend=='torch' and isinstance(data, np.ndarray):
+            data = torch_cast_cpu(data)
+            
+        if device=='cpu': self.data = data
+        elif device=='cuda':
+            if backend=='torch': self.data = data.cuda()
+            else: raise ValueError('cannot use cuda with numpy backend')
+        else: raise ValueError('device must be cpu or cuda, got {}'.format(device))
+        
+    def cuda(self):
+        self.data = self.data.cuda()
+        
+    def cpu(self):
+        self.data = self.data.cpu()
+        
+    def torch(self):
+        self.data = torch_cast_cpu(self.data)
+        
+    def numpy(self):
+        self.data = self.data.numpy()

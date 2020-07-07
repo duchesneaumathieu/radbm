@@ -6,6 +6,9 @@
 Welcome to radbm's documentation!
 =================================
 
+.. automodule:: radbm.loaders.base
+   :members:
+
 .. automodule:: radbm.retrieval.base
    :members:
 

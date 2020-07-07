@@ -7,7 +7,8 @@ from .utils_stats import (
     TestHypergeometric
 )
 from .utils_time import TestChronometer
-from .metrics_oracle import TestOracleMetric
+from .loaders_base import TestLoader, TestIRLoader
 from .retrieval_base import TestRetrieval
 from .retrieval_hashing import TestMultiBernoulliHashTables
 from .retrieval_gridsearch import TestGridSearch
+from .metrics_oracle import TestOracleMetric

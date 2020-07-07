@@ -1,87 +1,32 @@
 import os, torch
 import numpy as np
 from radbm.utils.os import StateObj
-from radbm.utils.torch import torch_cast, torch_cast_cpu, TorchNumpyRNG
-
-def locate_dataset_dirs(dataset, path):
-    # <path> if path is not None
-    # $DATASETS_DIR/<dataset>
-    # ./datasets/<dataset>
-    # ./<dataset>
-    paths = list()
-    if path is not None:
-        if os.path.isfile(path):
-            paths.append(os.path.dirname(path))
-        else: paths.append(path)
-    if 'DATASETS_DIR' in os.environ:
-        tmp = set()
-        env_path = [p for p in os.environ['DATASETS_DIR'].split(':') if p not in tmp and tmp.add(p) is None and p]
-        paths.extend(env_path)
-    paths.extend(['./datasets', '.'])
-    
-    output = list()
-    for p in paths:
-        while p.endswith('/'):
-            p = p[:-1] #remove ending /
-        if p.endswith(dataset):
-            if os.path.isdir(p):
-                output.append(p)
-        elif os.path.isdir(os.path.join(p, dataset)):
-            output.append(os.path.join(p, dataset))
-    return output
-    
-def locate_dataset_files(dataset, path, file):   
-    # <path> if not None (path endswith file)
-    # dir/<file> for dir in locate_dataset_dirs
-    # <file>
-    paths = list()
-    if path is not None:
-        if path.endswith(file) and os.path.isfile(path):
-            paths.append(path)
-        else:
-            join = os.path.join(path,file)
-            if os.path.isfile(join): paths.append(join)
-    for d in locate_dataset_dirs(dataset, path):
-        f = os.path.join(d,file)
-        if os.path.isfile(f): paths.append(f)
-    if os.path.isfile(file): paths.append(file)
-        
-    tmp = set()
-    return [p for p in paths if p not in tmp and tmp.add(p) is None and p]
-    return paths
-
-class TorchNumpy(object):
-    def __init__(self, data, backend, device):
-        self.backend = backend
-        self.device = device
-        if backend not in {'numpy', 'torch'}:
-            raise ValueError('backend must be numpy or torch, got {}'.format(backend))
-            
-        if backend=='numpy' and isinstance(data, torch.Tensor):
-            data = data.detach().cpu().numpy()
-        elif backend=='torch' and isinstance(data, np.ndarray):
-            data = torch_cast_cpu(data)
-            
-        if device=='cpu': self.data = data
-        elif device=='cuda':
-            if backend=='torch': self.data = data.cuda()
-            else: raise ValueError('cannot use cuda with numpy backend')
-        else: raise ValueError('device must be cpu or cuda, got {}'.format(device))
-        
-    def cuda(self):
-        self.data = self.data.cuda()
-        
-    def cpu(self):
-        self.data = self.data.cpu()
-        
-    def torch(self):
-        self.data = torch_cast_cpu(self.data)
-        
-    def numpy(self):
-        self.data = self.data.numpy()
+from radbm.utils.torch import (
+    TorchNumpy,
+    TorchNumpyRNG,
+    torch_cast_cpu
+)
 
 class Loader(StateObj):
-    def __init__(self, which, backend, device, rng=np.random):
+    """
+    An abstract class managing numpy vs torch, cpu vs gpu and train
+    vs valid vs test. This should be subclassed with a particular
+    dataset (i.e. Mnist).
+    
+    Parameters
+    ----------
+    which : str
+        Which datasets version to use. Should be 'train', 'valid' or 'test'.
+    backend : str
+        Which backend to use, should be 'numpy' or 'torch'.
+    device : str
+        Which device to use, should be 'cpu' or 'cuda'. 'cuda' is only
+        available if backend=='torch'.
+    rng : numpy.random.RandomState
+        A random number generator for reproducibility.
+    """
+    def __init__(self, which, backend, device, rng=None):
+        rng = np.random if rng is None else rng
         self.value_check('which', {'train', 'valid', 'test'}, which)
         self.value_check('backend', {'numpy', 'torch'}, backend)
         self.value_check('device', {'cpu', 'cuda'}, device)
@@ -101,7 +46,10 @@ class Loader(StateObj):
         self.train_group = dict()
         self.valid_group = dict()
         self.test_group = dict()
-        getattr(self, which)()
+        self.end_init()
+        
+    def end_init(self):
+        getattr(self, self.which)()
     
     def value_check(self, name, valids, value):
         if value not in valids:
@@ -113,6 +61,19 @@ class Loader(StateObj):
             raise ValueError('cannot use cuda, it is not available')
     
     def register_switch(self, name, data):
+        """
+        This function should only be used when subclassing. This is to
+        register data for when a user will call: numpy(), torch(), cpu()
+        or cuda(). Each value will be transfered to the appropriate format.
+        
+        Parameters
+        ----------
+        name : str
+            The name of the data. setarrt is used so one could later do self.<name>
+            to reach the data.
+        data : numpy.ndarray or torch.Tensor
+            The data to register.
+        """
         if hasattr(self, name):
             raise ValueError('{} already used'.format(name))
         tnp = TorchNumpy(data, self.backend, self.device)
@@ -124,12 +85,23 @@ class Loader(StateObj):
             getattr(getattr(self, name), function_name)()
     
     def torch(self):
+        """
+        Converts each registered data (using register_switch) into torch.Tensor
+        """
         if self.backend == 'torch': return self
         self.apply_switch('torch')
         self.backend = 'torch'
         return self
         
     def numpy(self):
+        """
+        Converts each registered data (using register_switch) into numpy.ndarray
+        
+        Raises
+        ------
+        ValueError
+            If device=='cuda'
+        """
         if self.backend == 'numpy': return self
         if self.device == 'cuda':
             msg = 'cannot use numpy backend with cuda, try loader.cpu() first'
@@ -139,6 +111,14 @@ class Loader(StateObj):
         return self
         
     def cuda(self):
+        """
+        Transfers each registered data (using register_switch) to the GPU
+        
+        Raises
+        ------
+        ValueError
+            If backend=='numpy'
+        """
         if self.device == 'cuda': return self
         if self.backend == 'numpy':
             msg = 'cannot use cuda with numpy backend, try loader.torch() first'
@@ -149,6 +129,9 @@ class Loader(StateObj):
         return self
         
     def cpu(self):
+        """
+        Transfers each registered data (using register_switch) to the CPU
+        """
         if self.device == 'cpu': return self
         self.apply_switch('cpu')
         self.device = 'cpu'
@@ -163,25 +146,50 @@ class Loader(StateObj):
                 setattr(self, k, v)
     
     def train(self):
+        """
+        Switch to training dataset.
+        """
         self.unpack_group(self.train_group)
         self.which='train'
         return self
         
     def valid(self):
+        """
+        Switch to validation dataset.
+        """
         self.unpack_group(self.valid_group)
         self.which='valid'
         return self
         
     def test(self):
+        """
+        Switch to testing dataset.
+        """
         self.unpack_group(self.test_group)
         self.which='test'
         return self
      
     def dynamic_cast(self, data):
+        """
+        Cast data according to the current state of the class.
+        E.g. when backend=='torch', device=='cuda' and the inputed
+        data is numpy.ndarray, the array will be converted to
+        torch.Tensor and transfered on the GPU.
+        
+        Parameters
+        ----------
+        data : numpy.ndarray or torch.Tensor
+            The data to cast
+            
+        Returns
+        -------
+        casted_data : numpy.ndarray or torch.Tensor
+            The casted data
+        """
         if self.backend=='torch' and isinstance(data, np.ndarray):
             data = torch_cast_cpu(data)
         if self.backend=='numpy' and isinstance(data, torch.Tensor):
-            data = torch.cpu().numpy()
+            data = data.cpu().numpy()
         if isinstance(data, torch.Tensor):
             if self.device=='cuda' and data.device.type=='cpu':
                 data = data.cuda()
@@ -206,21 +214,50 @@ class Loader(StateObj):
     def set_state(self, state):
         #fork rng before updating since it might be use elsewhere (e.g. the global np.random)
         #for using the same rng across multiple objects, use set_rng
-        self.rng = np.random.RandomState()
+        self.rng = TorchNumpyRNG(np.random.RandomState())
         self.rng.set_state(state)
         return self
     
     #for easy sharing rng across multiple object
     def get_rng(self):
+        """
+        Utility method to get the rng.
+        
+        Returns
+        -------
+        rng : numpy.random.RandomState
+            The rng used inside the utility class TorchNumpyRNG.
+        """
         return self.rng.rng
     
     def set_rng(self, rng):
+        """
+        Utility method to set the rng.
+        
+        Parameters
+        ----------
+        rng : numpy.random.RandomState or TorchNumpyRNG
+            The rng to use going forward.
+        
+        Returns
+        -------
+        self : Loader
+        """
         if isinstance(rng, TorchNumpyRNG): self.rng = rng
         else: self.rng=TorchNumpyRNG(rng)
         return self
     
 class IRLoader(Loader):
-    def __init__(self, mode, which, backend, device, rng=np.random):
+    """
+    A subclass of Loader meant for Information Retrieval. This introduces the
+    notion of mode which gouverns to way batches will be given.
+    
+    Parameters
+    ----------
+    mode : str
+        should be in IRLoader.get_available_modes()
+    """
+    def __init__(self, mode, which, backend, device, rng=None):
         super().__init__(which, backend, device, rng=rng)
         self.value_check('mode', self.get_available_modes(), mode)
         self.mode = mode
