@@ -42,6 +42,9 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.metrics.oracle
    :members:
 
+.. automodule:: radbm.metrics.sswr
+   :members:
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
