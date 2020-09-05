@@ -12,3 +12,4 @@ from .retrieval_base import TestRetrieval
 from .retrieval_hashing import TestMultiBernoulliHashTables
 from .retrieval_gridsearch import TestGridSearch
 from .metrics_oracle import TestOracleMetric
+from .metrics_sswr import TestSSWR
