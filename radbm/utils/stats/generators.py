@@ -66,7 +66,7 @@ def least_k_subset_sum_generator(values, k=None):
     for items in _least_k_subsortedset_sum_generator(values, k):
         yield tuple(perm[i] for i in items)
         
-def multi_bernoulli_top_k_generator(log_probs0, log_probs1=None, k=None):
+def greatest_k_multi_bernoulli_outcomes_generator(log_probs0, log_probs1=None, k=None):
     """
     Generator that yields the outcomes of a Multi-Bernoulli in decreasing
     order of probability. This work by reducing to the problem of generating

@@ -42,6 +42,15 @@ class TestSSWR(unittest.TestCase):
         #            find 4 in {4,5,13} + |{0,1,10,11,2,3,12}| + #generator calls
         expected_out = (moc(3,1,1) +   len({0,1,10,11,2,3,12}) + 3) / moc(20,5,5)
         self.assertEqual(out, expected_out)
+        
+        #test 5 (halting + bad candidates + recall=5/6)
+        relevant = {0,1,2,3,4,5}
+        delta_gen = (s for s in [{0,1}, {3,10}, {12}])
+        out = CounterSSWR(relevant, delta_gen, N=20, recall=5/6, allow_halt=True)
+        
+        #        find 2 out of 3 in 15 elements + |{0,1,10,11,2,3,12}| + #generator calls
+        expected_out = (moc(15,3,2) + len({0,1,3,10,12}) + 3) / moc(20,6,5)
+        self.assertEqual(out, (expected_out, True))
     
     def test_chronosswr(self):
         #make sure it runs
@@ -49,7 +58,7 @@ class TestSSWR(unittest.TestCase):
         delta_gen = (s for s in [{0,1}, {2,3}, {4,5}])
         out = ChronoSSWR(relevant, delta_gen, N=20)
         
-    def test_generator_exited_early(self):
+    def test_generator_halt_error(self):
         relevant = {0,1,2,3,4}
         
         #test 1 (non-empty)

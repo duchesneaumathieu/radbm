@@ -243,8 +243,17 @@ class Loader(StateObj):
         -------
         self : Loader
         """
-        if isinstance(rng, TorchNumpyRNG): self.rng = rng
-        else: self.rng=TorchNumpyRNG(rng)
+        if isinstance(rng, TorchNumpyRNG):
+            #rewrap for consistency
+            self.rng = TorchNumpyRNG(rng.rng)
+        else:
+            self.rng = TorchNumpyRNG(rng)
+        
+        #casting the numpy-cpu rng if necessary
+        if self.backend=='torch':
+            self.rng.torch()
+        if self.device=='cuda':
+            self.rng.cuda()
         return self
     
 class IRLoader(Loader):

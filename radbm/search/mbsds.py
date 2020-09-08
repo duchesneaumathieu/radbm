@@ -1,9 +1,14 @@
+import torch #only used in cast_numpy
 import numpy as np
-from radbm.retrieval.base import Retrieval
-from radbm.utils.stats.generators import multi_bernoulli_top_k_generator
+from radbm.search.base import BaseSDS
+from radbm.utils.stats.generators import greatest_k_multi_bernoulli_outcomes_generator
 
+def cast_numpy(data):
+    if isinstance(data, torch.Tensor):
+        return data.detach().cpu().numpy()
+    return data
 
-class MultiBernoulliHashTables(Retrieval):
+class HashingMultiBernoulliSDS(BaseSDS):
     """
     This algorithm build N hash tables from documents in the form
     of Multi-Bernoulli distributions. From a documents (i.e. a
@@ -76,11 +81,12 @@ class MultiBernoulliHashTables(Retrieval):
         k : int
             The number of outcomes to generates
         """
+        log_probs = cast_numpy(log_probs)
         if log_probs.ndim==1:
-            return multi_bernoulli_top_k_generator(log_probs, k=k)
+            return greatest_k_multi_bernoulli_outcomes_generator(log_probs, k=k)
         elif log_probs.ndim==2:
             log_probs0, log_probs1 = log_probs
-            return multi_bernoulli_top_k_generator(log_probs0, log_probs1, k=k)
+            return greatest_k_multi_bernoulli_outcomes_generator(log_probs0, log_probs1, k=k)
         else:
             msg = 'log_probs.ndim should be 1 or 2, got {}'
             raise ValueError(msg.format(log_probs.ndim))
@@ -134,17 +140,17 @@ class MultiBernoulliHashTables(Retrieval):
         indexes = set()
         nlookups = self.nlookups if nlookups is None else nlookups
         #loop for nlookups*self.ntables minus the number of empty lookups
-        for new_indexes in self.batch_itersearch(log_probs, nlookups):
+        for new_indexes in self.itersearch(log_probs, nlookups):
             indexes.update(new_indexes)
         return indexes
     
-    def batch_itersearch(self, log_probs, nlookups=None):
+    def itersearch(self, log_probs, nlookups=None, yield_empty=False):
         """
         Generator that search in the tables with a query in the form of a 
         Multi-Bernoulli distribution parametrized in log probabilities.
         This will search in each tables with each of the top (nlookups)
         outcomes. Everytime a set of indexes is found, this generator will
-        yield it.
+        yield it. If yield_empty is True, empty set will also be yield.
 
         Parameters
         ----------
@@ -157,17 +163,24 @@ class MultiBernoulliHashTables(Retrieval):
         nlookups : int, optional
             The upper limit to generate the next most probable outcomes. Not to
             be confused with the number of item generated. By default, generates
-            every outcomes. 
+            every outcomes.
 
         Yields
         ------
         indexes : set
             The newly found indexes
         """
+        yielded = set()
         for bits in self._get_generator(log_probs, nlookups):
             for table in self.tables:
                 if bits in table:
-                    yield table[bits]
+                    indexes = table[bits]
+                    new_indexes = indexes - yielded
+                    yielded.update(new_indexes)
+                    if yield_empty or new_indexes:
+                        yield new_indexes
+                elif yield_empty:
+                    yield set()
     
     def get_state(self):
         """

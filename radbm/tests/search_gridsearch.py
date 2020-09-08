@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from radbm.retrieval.gridsearch import GridSearch
+from radbm.search.gridsearch import GridSearch
 
 class TestGridSearch(unittest.TestCase):
     def setUp(self):

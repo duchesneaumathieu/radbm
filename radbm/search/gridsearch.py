@@ -1,8 +1,8 @@
 import heapq
 import numpy as np
-from radbm.retrieval.base import Retrieval
+from radbm.search.base import BaseSDS
 
-class GridSearch(Retrieval):
+class GridSearch(BaseSDS):
     """
     An exact symmetric search (query and documents are in the same space)
     GridSearch separates the space into a grid and fill each cell with

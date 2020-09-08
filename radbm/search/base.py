@@ -1,9 +1,10 @@
 from radbm.utils.os import StateObj
 
-class Retrieval(StateObj):
+class BaseSDS(StateObj):
     """
-    Maintains an index for documents to be retrieved with query
-    when queried the appropriate index(es) will be returned (not
+    Base Search Data Structure, need to be instantiate.
+    Maintains an index for documents to be retrieved with query.
+    When queried the appropriate index(es) will be returned (not
     the document(s))
     """
     def insert(self, document, index, *args, **kwargs):
@@ -26,7 +27,7 @@ class Retrieval(StateObj):
                 pass to batch_insert (see batch_insert for more details)
                 
         """
-        if type(self).batch_insert == Retrieval.batch_insert:
+        if type(self).batch_insert == BaseSDS.batch_insert:
             raise NotImplementedError('insert or batch_insert need to be overridden')
         self.batch_insert(document[None], [index], *args, **kwargs)
         
@@ -50,7 +51,7 @@ class Retrieval(StateObj):
             **kwargs
                 pass to insert (see insert for more details)
         """
-        if type(self).insert == Retrieval.insert:
+        if type(self).insert == BaseSDS.insert:
             raise NotImplementedError('insert or batch_insert need to be overridden')
         for document, index in zip(documents, indexes):
             self.insert(document, index, *args, **kwargs)
@@ -75,7 +76,7 @@ class Retrieval(StateObj):
                 The indexes of the retrieved documents. If indexes
                 is a list, it should indicate that the indexes are ordered.
         """
-        if type(self).batch_search == Retrieval.batch_search:
+        if type(self).batch_search == BaseSDS.batch_search:
             raise NotImplementedError('search or batch_search need to be overridden')
         return self.batch_search(query[None], *args, **kwargs)[0]
     
@@ -100,13 +101,13 @@ class Retrieval(StateObj):
                 If indexes[i] is a list, it should indicate that the
                 indexes are ordered.
         """
-        if type(self).search == Retrieval.search:
+        if type(self).search == BaseSDS.search:
             raise NotImplementedError('search or batch_search need to be overridden')
         return [self.search(q, *args, **kwargs) for q in queries]
     
     def itersearch(self, query, *args, **kwargs):
         """
-        Default generator that yields index one at a time.
+        Default generator, based on batch_itersearch, that yields indexes.
         
         Parameters
         ----------
@@ -118,35 +119,31 @@ class Retrieval(StateObj):
             
         Yields
         ------
-            index
+            indexes
         """
-        if type(self).batch_itersearch == Retrieval.batch_itersearch:
+        if type(self).batch_itersearch == BaseSDS.batch_itersearch:
             raise NotImplementedError('itersearch or batch_itersearch need to be overridden')
-        for indexes in self.batch_itersearch(query, *args, **kwargs):
-            for index in indexes:
-                yield index
+        yield from self.batch_itersearch(query[None], *args, **kwargs)[0]
         
-    def batch_itersearch(self, query, *args, **kwargs):
+    def batch_itersearch(self, queries, *args, **kwargs):
         """
-        Default generator that yields indexes in batch of one. This
-        should not be confused with the other batch_* methods as this
-        take only a single query (not a batch of queries) but generates
-        a batch of indexes.
+        Default function that return a list of generator using itersearch.
+        With ith generator corresponding to the ith query.
         
         Parameters
         ----------
-            query : numpy.ndarray or torch.Tensor
+            queries : numpy.ndarray or torch.Tensor
             *args
                 pass to itersearch (see itersearch for more details)
             **kwargs
                 pass to itersearch (see itersearch for more details)
             
-        Yields
+        Returns
         ------
-            batch_index : set or list of index
-                A list should indicate that the batch is ordered.
+            itersearch_list : list of generator
+                where the ith generetor yields indexes (set or list) that
+                correspond to the ith  query.
         """
-        if type(self).itersearch == Retrieval.itersearch:
+        if type(self).itersearch == BaseSDS.itersearch:
             raise NotImplementedError('itersearch or batch_itersearch need to be overridden')
-        for index in self.itersearch(query, *args, **kwargs):
-            yield [index]
+        return [self.itersearch(query, *args, **kwargs) for query in queries]

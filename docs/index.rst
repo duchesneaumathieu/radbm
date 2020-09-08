@@ -9,13 +9,16 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.loaders.base
    :members:
 
-.. automodule:: radbm.retrieval.base
+.. automodule:: radbm.search.base
    :members:
 
-.. automodule:: radbm.retrieval.hashing
+.. automodule:: radbm.search.mbsds
    :members:
 
-.. automodule:: radbm.retrieval.gridsearch
+.. automodule:: radbm.search.elbm.base
+   :members:
+
+.. automodule:: radbm.search.gridsearch
    :members:
 
 .. automodule:: radbm.utils

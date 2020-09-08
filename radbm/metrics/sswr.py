@@ -12,8 +12,10 @@ class MonitorTime(object):
     
     def __next__(self):
         self.chrono.start()
-        item = next(self.gen)
-        self.chrono.stop()
+        try:
+            item = next(self.gen)
+        finally:
+            self.chrono.stop()
         return item
     
     def get_value(self):
@@ -29,8 +31,8 @@ class MonitorNext(object):
         return self
     
     def __next__(self):
-        self.count += 1
         item = next(self.gen)
+        self.count += 1 #does not count when next exit
         return item
     
     def get_value(self):
@@ -62,7 +64,7 @@ def _sswr_sanitize_delta_candidates(candidates, delta_candidates, on_duplicate_c
     return delta_candidates - intersection
             
 
-def SSWR(relevant, monitor, N, recall=1, on_duplicate_candidates='raise'):
+def SSWR(relevant, monitor, N, recall=1, allow_halt=False, on_duplicate_candidates='raise'):
     """
     The Sequential Search Work Ratio (SSWR) metric used for quick retrieval task
     this function use monitor has the delta generator and monitor.get_value() for the 
@@ -80,6 +82,10 @@ def SSWR(relevant, monitor, N, recall=1, on_duplicate_candidates='raise'):
     recall : float in [0,1] (optional)
         The minimal percentage of relevant document that should be generated
         (default 1)
+    allow_halt : bool (optional)
+        Allow the generator not to necessarily all needed indexes. This is similar, but
+        not equal, to the case where the generator produce every other indexes at one
+        and stop. (default False)
     on_duplicate_candidates : str (optional)
         Should be 'raise' or 'ignore'. Set what should be done if the same index
         is generated twice. If 'raise', a RunetimeError will be raised. Otherwise,
@@ -87,17 +93,19 @@ def SSWR(relevant, monitor, N, recall=1, on_duplicate_candidates='raise'):
     
     Returns
     -------
-        work_ratio : float
-            The SSWR
+        work_ratio : float (or (float, bool) if allow_halt)
+            By default, the SSWR. If allow_halt is True it returns a tuple with the
+            SSWR and a boolean indicating if the generator halted abruptly.
             
     Raises
     ------
     ValueError
         If on_duplicate_candidates not in {'raises', 'ignore'}.
     RuntimeError
-        If on_duplicate_candidates=='raise' and an index is generated twice
+        If on_duplicate_candidates=='raise' and an index is generated twice.
     LookupError
-        If delta_generator stops without generating enough relevant documents 
+        If allow_halt is False and delta_generator stops without
+        generating enough relevant documents.
             
     Notes
     -----
@@ -126,19 +134,28 @@ def SSWR(relevant, monitor, N, recall=1, on_duplicate_candidates='raise'):
             break
         n_exhaustive_calls += len(delta_candidates)
         candidates.update(delta_candidates)
-    if k > n_relevant: #exit loop without break
-        msg = 'delta_generator exited without producing enough relevant documents. Needed {}, got {}'
+    halt = k > n_relevant #exit loop without break
+    if halt and not allow_halt:
+        msg = ('with allow_halt=False, the delta_generator exited without '
+               'producing enough relevant documents. Needed {}, got {}')
         raise LookupError(msg.format(k, n_relevant))
-    delta_N = len(delta_candidates)
-    delta_K = n_delta_relevant
-    delta_k = k - (n_relevant - n_delta_relevant)
+    if halt:
+        #random oracle search on the rest
+        delta_N = N - n_exhaustive_calls
+        delta_K = K - n_relevant
+        delta_k = k - n_relevant
+    else:
+        #random oracle search on the last delta_candidates
+        delta_N = len(delta_candidates)
+        delta_K = n_delta_relevant
+        delta_k = k - (n_relevant - n_delta_relevant)
     nume_work = MatchingOracleCost(delta_N, delta_K, delta_k)
     nume_work += n_exhaustive_calls + monitor.get_value()
     deno_work = MatchingOracleCost(N, K, k)
     work_ratio = nume_work / deno_work
-    return work_ratio
+    return (work_ratio, halt) if allow_halt else work_ratio
 
-def ChronoSSWR(relevant, delta_generator, N, eta=1, recall=1, on_duplicate_candidates='raise'):
+def ChronoSSWR(relevant, delta_generator, N, eta=1, recall=1, allow_halt=False, on_duplicate_candidates='raise'):
     """
     The Chronometer Sequential Search Work Ratio (SSWR) metric used for quick retrieval task.
     It uses the generating time (in seconds) has a mesure of the work done by the delta_generator.
@@ -157,15 +174,20 @@ def ChronoSSWR(relevant, delta_generator, N, eta=1, recall=1, on_duplicate_candi
     recall : float in [0,1] (optional)
         The minimal percentage of relevant document that should be generated
         (default 1)
+    allow_halt : bool (optional)
+        Allow the generator not to necessarily all needed indexes. This is similar, but
+        not equal, to the case where the generator produce every other indexes at one
+        and stop. (default False)
     on_duplicate_candidates : str (optional)
         Should be 'raise' or 'ignore'. Set what should be done if the same index
         is generated twice. If 'raise', a RunetimeError will be raised. Otherwise,
         if 'ignore', the diplicated candidate(s) will be removed. (default 'raise')
-        
+    
     Returns
     -------
-        work_ratio : float
-            The Chronometer SSWR
+        work_ratio : float (or (float, bool) if allow_halt)
+            By default, the SSWR. If allow_halt is True it returns a tuple with the
+            SSWR and a boolean indicating if the generator halted abruptly.
             
     Raises
     ------
@@ -177,9 +199,9 @@ def ChronoSSWR(relevant, delta_generator, N, eta=1, recall=1, on_duplicate_candi
         If delta_generator stops without generating enough relevant documents 
     """
     monitor = MonitorTime(delta_generator, eta=eta)
-    return SSWR(relevant, monitor, N, recall=recall, on_duplicate_candidates=on_duplicate_candidates)
+    return SSWR(relevant, monitor, N, recall=recall, allow_halt=allow_halt, on_duplicate_candidates=on_duplicate_candidates)
 
-def CounterSSWR(relevant, delta_generator, N, eta=1, recall=1, on_duplicate_candidates='raise'):
+def CounterSSWR(relevant, delta_generator, N, eta=1, recall=1, allow_halt=False, on_duplicate_candidates='raise'):
     """
     The Counter Sequential Search Work Ratio (SSWR) metric used for quick retrieval task.
     It uses the number of call to the generator has a mesure of the work done by the delta_generator.
@@ -198,15 +220,20 @@ def CounterSSWR(relevant, delta_generator, N, eta=1, recall=1, on_duplicate_cand
     recall : float in [0,1] (optional)
         The minimal percentage of relevant document that should be generated
         (default 1)
+    allow_halt : bool (optional)
+        Allow the generator not to necessarily all needed indexes. This is similar, but
+        not equal, to the case where the generator produce every other indexes at one
+        and stop. (default False)
     on_duplicate_candidates : str (optional)
         Should be 'raise' or 'ignore'. Set what should be done if the same index
         is generated twice. If 'raise', a RunetimeError will be raised. Otherwise,
         if 'ignore', the diplicated candidate(s) will be removed. (default 'raise')
-        
+    
     Returns
     -------
-        work_ratio : float
-            The Counter SSWR
+        work_ratio : float (or (float, bool) if allow_halt)
+            By default, the SSWR. If allow_halt is True it returns a tuple with the
+            SSWR and a boolean indicating if the generator halted abruptly.
             
     Raises
     ------
@@ -218,4 +245,4 @@ def CounterSSWR(relevant, delta_generator, N, eta=1, recall=1, on_duplicate_cand
         If delta_generator stops without generating enough relevant documents 
     """
     monitor = MonitorNext(delta_generator, eta=eta)
-    return SSWR(relevant, monitor, N, recall=recall, on_duplicate_candidates=on_duplicate_candidates)
+    return SSWR(relevant, monitor, N, recall=recall, allow_halt=allow_halt, on_duplicate_candidates=on_duplicate_candidates)

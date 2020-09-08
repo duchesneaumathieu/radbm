@@ -1,18 +1,20 @@
 import numpy as np
 import gzip, pickle, torch
-from radbm.loaders.base import Loader, IRLoader, locate_dataset_dirs, locate_dataset_files
+from radbm.loaders.base import Loader, IRLoader
+from radbm.utils.fetch import get_directories_list, fetch_file
 
-def mnist_loader(path=None):
-    file_paths = locate_dataset_files('Mnist', path, 'mnist.pkl.gz')
-    if len(file_paths) == 0: raise FileNotFoundError('could not locate mnist.pkl.gz')
+def mnist_loader(path=None, download=True):
+    file_paths = fetch_file('mnist.pkl.gz', path, data_type='dataset', subdirs=['Mnist', 'mnist'], download=download)
+    if not file_paths:
+        raise FileNotFoundError('could not locate mnist.pkl.gz')
     with gzip.open(file_paths[0], 'rb') as f:
         train_xy, valid_xy, test_xy = pickle.load(f, encoding='latin1')
     return train_xy, valid_xy, test_xy
     
 class Mnist(Loader):
-    def __init__(self, path=None, which='train', backend='numpy', device='cpu', rng=np.random):
+    def __init__(self, path=None, download=True, which='train', backend='numpy', device='cpu', rng=np.random):
         super().__init__(which=which, backend=backend, device=device, rng=rng)
-        train_xy, valid_xy, test_xy = mnist_loader(path)
+        train_xy, valid_xy, test_xy = mnist_loader(path, download=download)
         for which, (x, y) in [('train', train_xy), ('valid', valid_xy), ('test', train_xy)]:
             self.register_switch('{}_x'.format(which), x)
             self.register_switch('{}_y'.format(which), y)
@@ -28,12 +30,12 @@ class Mnist(Loader):
         return self.x.data[ids], self.y.data[ids]
     
 class ClassMnist(IRLoader):
-    def __init__(self, sigma=0, path=None, mode='class_relation', which='train', backend='numpy', device='cpu', rng=np.random):
+    def __init__(self, sigma=0, path=None, download=True, mode='class_relation', which='train', backend='numpy', device='cpu', rng=np.random):
         super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
         if mode is not 'relational_matrix':
             raise NotImplementedError('mode={} not implemented yet'.format(mode))
         self.sigma = sigma
-        train_xy, valid_xy, test_xy = mnist_loader(path)
+        train_xy, valid_xy, test_xy = mnist_loader(path, download=download)
         for which, (x, y) in [('train', train_xy), ('valid', valid_xy), ('test', train_xy)]:
             self.register_switch('{}_x'.format(which), x[y.argsort()])
             jump = np.arange(0,len(x),len(x)//10) #jump always on np since it is for indexing
@@ -78,12 +80,12 @@ class ClassMnist(IRLoader):
         return x1, x2, self.eye.data
     
 class NoisyMnist(IRLoader):
-    def __init__(self, sigma=0.2, path=None, mode='relational_matrix', which='train', backend='numpy', device='cpu', rng=np.random):
+    def __init__(self, sigma=0.2, path=None, download=True, mode='relational_matrix', which='train', backend='numpy', device='cpu', rng=np.random):
         super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
         if mode is not 'relational_matrix':
             raise NotImplementedError('mode={} not implemented yet'.format(mode))
         self.sigma = sigma
-        train_xy, valid_xy, test_xy = mnist_loader(path)
+        train_xy, valid_xy, test_xy = mnist_loader(path, download=download)
         for which, (x, y) in [('train', train_xy), ('valid', valid_xy), ('test', train_xy)]:
             self.register_switch('{}_x'.format(which), x)
             x = getattr(self, '{}_x'.format(which)) #retrieve the TorchNumpy

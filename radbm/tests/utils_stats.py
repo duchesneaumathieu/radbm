@@ -22,7 +22,7 @@ class Test_least_k_subset_sum_generator(unittest.TestCase):
         self.assertTrue(2**10, len(list(gen)))
     
 def logsigmoid(x): return -np.log(1 + np.exp(-x))
-class Test_multi_bernoulli_top_k_generator(unittest.TestCase):
+class Test_greatest_k_multi_bernoulli_outcomes_generator(unittest.TestCase):
     def compute_outcomes_prob(self, generator, log_probs0, log_probs1):
         probs = list()
         for bits in generator:
@@ -37,8 +37,8 @@ class Test_multi_bernoulli_top_k_generator(unittest.TestCase):
         log_probs0 = logsigmoid(logits)
         log_probs1 = logsigmoid(-logits)
 
-        gen1 = multi_bernoulli_top_k_generator(log_probs0, log_probs1, k=200)
-        gen2 = multi_bernoulli_top_k_generator(log_probs0, k=200)
+        gen1 = greatest_k_multi_bernoulli_outcomes_generator(log_probs0, log_probs1, k=200)
+        gen2 = greatest_k_multi_bernoulli_outcomes_generator(log_probs0, k=200)
         probs1 = self.compute_outcomes_prob(gen1, log_probs0, log_probs1)
         probs2 = self.compute_outcomes_prob(gen2, log_probs0, log_probs1)
         self.assertEqual(probs1, probs2)
@@ -46,13 +46,13 @@ class Test_multi_bernoulli_top_k_generator(unittest.TestCase):
         self.assertEqual(200, len(probs1)) #assert we generate k outcomes
         
         #assert that we generate all outcomes when k is None
-        self.assertEqual(2**8, len(list(multi_bernoulli_top_k_generator(log_probs0))))
+        self.assertEqual(2**8, len(list(greatest_k_multi_bernoulli_outcomes_generator(log_probs0))))
         
         logits = rng.uniform(-100, 100, (8,))
         log_probs0 = logsigmoid(logits)
         log_probs1 = logsigmoid(-logits)
-        gen1 = multi_bernoulli_top_k_generator(log_probs0, log_probs1, k=200)
-        gen2 = multi_bernoulli_top_k_generator(log_probs0, k=200)
+        gen1 = greatest_k_multi_bernoulli_outcomes_generator(log_probs0, log_probs1, k=200)
+        gen2 = greatest_k_multi_bernoulli_outcomes_generator(log_probs0, k=200)
         next(gen1) #runs
         with self.assertRaises(FloatingPointError):
             #numerically unstable when log_probs1 is not given
