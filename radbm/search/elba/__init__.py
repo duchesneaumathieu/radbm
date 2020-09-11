@@ -1,9 +1,9 @@
 from .base import (
-    EfficientLearnableBinaryMemory,
+    EfficientLearnableBinaryAccess,
     multi_bernoulli_equality,
     multi_bernoulli_subset,
     multi_bernoulli_activated_equality,
     multi_bernoulli_activated_subset,
 )
-#from .fbeta import FbetaELBM
-#from .mihash import MIHashELMB
+from .fbeta import Fbeta
+#from .mihash import MIHash

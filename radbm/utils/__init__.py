@@ -16,6 +16,23 @@ def unique_list(it):
     return [i for i in it if i not in unique and unique.add(i) is None]
 
 def Ramp(x0, x1, y0, y1):
+    """
+    Parameters
+    ----------
+    x0 : float
+        The input value where we start ramping
+    x1 : float
+        The input value where we stop ramping
+    y0 : float
+        The output value where the ramp starts
+    y1 : float
+        The output value where the ramp stops
+    
+    Returns
+    -------
+    ramp : function float -> float
+        The ramping function
+    """
     rate = (y1-y0) / (x1-x0)
     def ramp(x):
         if x is None: return y1

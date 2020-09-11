@@ -109,9 +109,9 @@ def multi_bernoulli_activated_subset(xz, yz, az):
     xp, yp, ap, xn, yn, an = map(logsigmoid, (xz, yz, az, -xz, -yz, -az))
     return torch_logsumexp(ap, an + xp + yp, an + xn + yn, an + xn + yp)
 
-class EfficientLearnableBinaryMemory(BaseSDS, torch.nn.Module):
+class EfficientLearnableBinaryAccess(BaseSDS, torch.nn.Module):
     """
-    EfficientLearnableBinaryMemory (ELBM) is a base class for concrete models.
+    EfficientLearnableBinaryAccess (ELBA) is a base class for concrete models.
     Given a search data structure and two parametric encoding functions, one
     for the queries (fq) and one for the documents (fd), both producing a 
     Multi-Bernoulli code (i.e. in [0,1]^n) in its logits form (pre sigmoid).

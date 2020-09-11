@@ -15,7 +15,10 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.search.mbsds
    :members:
 
-.. automodule:: radbm.search.elbm.base
+.. automodule:: radbm.search.elba.base
+   :members:
+
+.. automodule:: radbm.search.elba.fbeta
    :members:
 
 .. automodule:: radbm.search.gridsearch
@@ -43,6 +46,9 @@ Welcome to radbm's documentation!
    :members:
 
 .. automodule:: radbm.metrics.oracle
+   :members:
+
+.. automodule:: radbm.metrics.hamming
    :members:
 
 .. automodule:: radbm.metrics.sswr
