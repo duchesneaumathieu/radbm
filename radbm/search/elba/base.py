@@ -210,3 +210,16 @@ class EfficientLearnableBinaryAccess(BaseSDS, torch.nn.Module):
         """
         qmb = self._log_sigmoid_pairs(self.fq(queries))
         return self.struct.batch_itersearch(qmb, *args, **kwargs)
+    
+    def get_state(self):
+        return {
+            'f': self.state_dict(),
+            'optim': self.optim.state_dict(),
+            'struct': self.struct.get_state(),
+        }
+    
+    def set_state(self, state):
+        self.load_state_dict(state['f'])
+        self.optim.load_state_dict(state['optim'])
+        self.struct.set_state(state['struct'])
+        return self

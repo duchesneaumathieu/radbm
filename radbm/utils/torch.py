@@ -4,6 +4,7 @@ from functools import reduce
 from collections import OrderedDict
 
 def torch_hamming(code1, code2, dim=-1, keepdims=False):
+    #obsolete, a way better implementation in radbm.metrics.hamming
     if isinstance(dim, int): dim = (dim,)
     n1 = int(np.prod([code1.shape[d] for d in dim]))
     n2 = int(np.prod([code2.shape[d] for d in dim]))
@@ -12,7 +13,6 @@ def torch_hamming(code1, code2, dim=-1, keepdims=False):
     return n1 - c
 
 def torch_soft_hamming(v, w, dim=-1, keepdims=False):
-    #expecting values in [-1,1]
     if isinstance(dim, int): dim = (dim,)
     n1 = int(np.prod([v.shape[d] for d in dim]))
     n2 = int(np.prod([w.shape[d] for d in dim]))

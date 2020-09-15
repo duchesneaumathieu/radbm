@@ -6,4 +6,5 @@ from .base import (
     multi_bernoulli_activated_subset,
 )
 from .fbeta import Fbeta
-#from .mihash import MIHash
+from .mihash import MIHash
+from .hashnet import HashNet

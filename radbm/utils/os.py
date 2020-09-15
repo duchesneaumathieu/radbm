@@ -1,7 +1,7 @@
-import os, pickle
+import os, torch
 
 #not safe yet
-def safe_save(obj, path):
+def safe_save(obj, path, pickle_protocol=torch.serialization.DEFAULT_PROTOCOL):
     """
     Safely saves obj in path by creating .tmp file
     before ovewriting an existing file
@@ -12,6 +12,9 @@ def safe_save(obj, path):
         the object to be saved
     path : str
         the path where to save obj
+    pickle_protocol : int (optional)
+        The pickle protocol to uses. By default, the torch default_protocol
+        is used.
     
     Returns
     -------
@@ -20,11 +23,11 @@ def safe_save(obj, path):
 
     """
     with open(path, 'wb') as f:
-        pickle.dump(obj, f)
+        torch.save(obj, f, pickle_protocol=pickle_protocol)
     return obj
     
 #not safe yet
-def safe_load(path):
+def safe_load(path, map_location=None):
     """
     Safely load an object if .tmp is present 
     it will be prefered unless it is corrupted
@@ -42,7 +45,7 @@ def safe_load(path):
 
     """
     with open(path, 'rb') as f:
-        obj = pickle.load(f)
+        obj = torch.load(f, map_location=map_location)
     return obj
 
 class StateObj(object):
@@ -52,16 +55,22 @@ class StateObj(object):
     def set_state(self, state):
         raise NotImplementedError()
     
-    def save(self, path=None, file=None):
-        state = self.get_state()
-        if file is not None: pickle.dump(state, file, -1)
-        elif path is not None: safe_save(state, path)
-        else: raise ValueError('path or file need to be specified')
+    def save(self, path, if_exists='overwrite', *args, **kwargs):
+        #TODO replace *args **kwargs with the right names
+        if not os.path.exists(path) or if_exists=='overwrite':
+            state = self.get_state()
+            safe_save(state, path, *args, **kwargs)
+        elif if_exists=='raise':
+            msg = '{} exists and if_exists is "raise"'
+            raise FileExistsError(msg.format(path))
         return self
     
-    def load(self, path=None, file=None):
-        if file is not None: state = pickle.load(file)
-        elif path is not None: state = safe_load(path)
-        else: raise ValueError('path or file need to be specified')
-        self.set_state(state)
+    def load(self, path, if_inexistent='raise', *args, **kwargs):
+        #TODO replace *args **kwargs with the right names
+        if os.path.exists(path):
+            state = safe_load(path, *args, **kwargs)
+            self.set_state(state)
+        elif if_inexistent=='raise':
+            msg = '{} does not exists and if_inexistent is "raise"'
+            raise FileNotFoundError(msg.format(path))
         return self

@@ -37,7 +37,18 @@ class HashingMultiBernoulliSDS(BaseSDS):
     def __init__(self, ntables, nlookups=1):
         self.ntables = ntables
         self.nlookups = nlookups
-        self.tables = [dict() for _ in range(ntables)]
+        self.reset()
+        
+    def reset(self):
+        """
+        Empty the hash tables
+        
+        Returns
+        -------
+        self
+        """
+        self.tables = [dict() for _ in range(self.ntables)]
+        return self
         
     def get_buckets_avg_size(self):
         """

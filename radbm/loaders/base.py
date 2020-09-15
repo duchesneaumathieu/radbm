@@ -214,8 +214,9 @@ class Loader(StateObj):
     def set_state(self, state):
         #fork rng before updating since it might be use elsewhere (e.g. the global np.random)
         #for using the same rng across multiple objects, use set_rng
-        self.rng = TorchNumpyRNG(np.random.RandomState())
-        self.rng.set_state(state)
+        rng = np.random.RandomState()
+        rng.set_state(state)
+        self.set_rng(rng)
         return self
     
     #for easy sharing rng across multiple object

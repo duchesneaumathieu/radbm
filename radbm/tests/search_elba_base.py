@@ -65,3 +65,9 @@ class TestEfficientLearnableBinaryAccess(unittest.TestCase):
         self.assertEqual(index, [{i} for i in range(32)])
         index = [next(g) for g in elba.batch_itersearch(data)]
         self.assertEqual(index, [{i} for i in range(32)])
+        
+    def test_get_and_set_state(self):
+        f = torch.nn.Linear(784,128)
+        elba = EfficientLearnableBinaryAccess(
+            f, f, HashingMultiBernoulliSDS(1,1))
+        elba.set_state(elba.get_state())
