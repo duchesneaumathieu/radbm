@@ -1,5 +1,6 @@
 import unittest
-from radbm.metrics.sswr import ChronoSSWR, CounterSSWR
+import numpy as np
+from radbm.metrics.sswr import HaltingChronoSSWR, HaltingCounterSSWR, ChronoSSWR, CounterSSWR
 
 def moc(N, K, k):
     #short for matching oracle cost
@@ -51,12 +52,48 @@ class TestSSWR(unittest.TestCase):
         #        find 2 out of 3 in 15 elements + |{0,1,10,11,2,3,12}| + #generator calls
         expected_out = (moc(15,3,2) + len({0,1,3,10,12}) + 3) / moc(20,6,5)
         self.assertEqual(out, (expected_out, True))
+        
+    def test_haltingcountersswr(self):
+        relevant = {0,1,2,3,4}
+        delta_gen = (s for s in [{0,1,5}, {2,3}, {4,6,7}])
+        sswrs, halts = HaltingCounterSSWR(relevant, delta_gen, N=20, max_halt=4)
+        expected_sswrs = np.array([
+            moc(20,5,5) + 0 + 0, #halt
+            moc(17,3,3) + 3 + 1, #halt
+            moc(15,1,1) + 5 + 2, #halt
+            moc(3,1,1) + 5 + 3, #not halt
+            moc(3,1,1) + 5 + 3, #not halt (same->copy)
+        ])/moc(20,5,5)
+        expected_halts = np.array([1,1,1,0,0])
+        self.assertTrue(np.allclose(sswrs, expected_sswrs))
+        self.assertTrue(np.allclose(halts, expected_halts))
+        
+        #with recall = 6/7 and max_hatl=4
+        relevant = {0,1,2,3,4,5,6}
+        delta_gen = (s for s in [{0,1,7}, {2,3}, {4,8,9}, {10,11}, {5}]) #<-- 5 found at step 5<4
+        sswrs, halts = HaltingCounterSSWR(relevant, delta_gen, N=20, max_halt=4, recall=6/7)
+        expected_sswrs = np.array([
+            moc(20,7,6) + 0 + 0, #halt
+            moc(17,5,4) + 3 + 1, #halt
+            moc(15,3,2) + 5 + 2, #halt
+            moc(12,2,1) + 8 + 3, #halt
+            moc(10,2,1) + 10 + 4, #halt
+        ])/moc(20,7,6)
+        expected_halts = np.array([1,1,1,1,1])
+        self.assertTrue(np.allclose(sswrs, expected_sswrs))
+        self.assertTrue(np.allclose(halts, expected_halts))
     
     def test_chronosswr(self):
         #make sure it runs
         relevant = {0,1,2,3,4}
         delta_gen = (s for s in [{0,1}, {2,3}, {4,5}])
         out = ChronoSSWR(relevant, delta_gen, N=20)
+        
+    def test_haltingchronosswr(self):
+        #make sure it runs
+        relevant = {0,1,2,3,4}
+        delta_gen = (s for s in [{0,1}, {2,3}, {4,5}])
+        out = HaltingChronoSSWR(relevant, delta_gen, N=20, max_halt=4)
         
     def test_generator_halt_error(self):
         relevant = {0,1,2,3,4}

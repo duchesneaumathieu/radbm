@@ -3,7 +3,11 @@ import numpy as np
 from radbm.search.radius import HammingRadiusSDS
 
 class TestHammingRadiusSDS(unittest.TestCase):
-    def test(self):
+    def test_numpy_cast(self):
+        mbht = HammingRadiusSDS(64, 2)
+        mbht.batch_insert(torch.zeros((10,64),dtype=torch.bool), range(10))
+        
+    def test_hammingradius(self):
         sds = HammingRadiusSDS(4, 2)
         #(0 in 4) + (1 in 4) + (2 in 4) = 1 + 4 + 6 = 11
         self.assertEqual(sds.masks.shape, (11, 4))

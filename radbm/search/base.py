@@ -30,6 +30,7 @@ class BaseSDS(StateObj):
         if type(self).batch_insert == BaseSDS.batch_insert:
             raise NotImplementedError('insert or batch_insert need to be overridden')
         self.batch_insert(document[None], [index], *args, **kwargs)
+        return self
         
     def batch_insert(self, documents, indexes, *args, **kwargs):
         """
@@ -55,6 +56,7 @@ class BaseSDS(StateObj):
             raise NotImplementedError('insert or batch_insert need to be overridden')
         for document, index in zip(documents, indexes):
             self.insert(document, index, *args, **kwargs)
+        return self
             
     def search(self, query, *args, **kwargs):
         """
