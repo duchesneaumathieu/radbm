@@ -231,6 +231,7 @@ def HaltSSWR(relevant, monitor, N, max_halt, recall=1, on_duplicate_candidates='
     halts = np.zeros((max_halt+1), dtype=np.bool)
     sswr = _SSWR(relevant, monitor, N, recall=recall, on_duplicate_candidates=on_duplicate_candidates)
     sswrs[0], halts[0] = sswr(allow_halt=True)
+    n = 0 #if monitor is empty or find all relevants on first candidates
     for n, _ in enumerate(sswr,1):
         sswrs[n], halts[n] = sswr(allow_halt=True)
     sswrs[n+1:], halts[n+1:] = sswr(allow_halt=True)
