@@ -54,6 +54,12 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.utils.stats.hypergeometric
    :members:
 
+.. automodule:: radbm.utils.torch.multi_bernoulli.poisson_binomial
+   :members:
+
+.. automodule:: radbm.utils.torch.multi_bernoulli.log_arithmetic
+   :members:
+
 .. automodule:: radbm.metrics.oracle
    :members:
 

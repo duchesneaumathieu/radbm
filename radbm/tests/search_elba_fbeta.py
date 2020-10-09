@@ -11,6 +11,7 @@ class TestFbeta(unittest.TestCase):
             torch.nn.Linear(32,16),
             HashingMultiBernoulliSDS(1,1),
             -np.log(32), # log(1/bs)
+            match_dist=0,
         )
         x = torch.eye(32, dtype=torch.float)
         r = torch.eye(32, dtype=torch.bool)

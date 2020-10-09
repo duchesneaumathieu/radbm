@@ -139,7 +139,7 @@ class PoissonBinomialSum(torch.nn.Module):
         super().__init__()
         self.n = n
         w = 2*np.pi/(n+1)
-        #use python imaginary arithemtic
+        #use python imaginary arithmetic
         roots = np.array([np.e**(w*l*1j) for l in range(n+1)])
         roots_real = torch.tensor(roots.real, requires_grad=roots_requires_grad)
         roots_imag = torch.tensor(roots.imag, requires_grad=roots_requires_grad)

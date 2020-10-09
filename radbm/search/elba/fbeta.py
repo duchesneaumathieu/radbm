@@ -3,8 +3,13 @@ from torch.nn.utils import clip_grad_value_
 import numpy as np
 
 from radbm.utils import Ramp
-from radbm.search.elba import EfficientLearnableBinaryAccess, multi_bernoulli_equality
-from radbm.utils.torch import torch_lme, positive_loss_adaptative_l2_reg
+from radbm.search.elba import EfficientLearnableBinaryAccess
+from radbm.utils.torch import (
+    torch_lme,
+    positive_loss_adaptative_l2_reg,
+    multi_bernoulli_equality,
+    log_poisson_binomial,
+)
 
 def _importance(match, match_prob):
     batch_prob = match.float().mean()
@@ -69,11 +74,12 @@ class Fbeta(EfficientLearnableBinaryAccess):
     ramp : function
         A ramping function used for ramping the log2(beta) at each steps.
     """
-    def __init__(self, fq, fd, struct, log_match_prob, sim=multi_bernoulli_equality, ramp=Ramp(0,1024,-64,-8)):
+    def __init__(self, fq, fd, struct, log_match_prob, sim=multi_bernoulli_equality, match_dist=1, ramp=Ramp(0,1024,-64,-8)):
         super().__init__(fq, fd, struct)
         self.sim = sim
         self.ramp = (lambda x: ramp) if isinstance(ramp, (int, float)) else ramp
         self.log_match_prob = log_match_prob
+        self.match_dist = match_dist
         
     def loss(self, match, log_match, nbatch=None):
         log2_beta = self.ramp(nbatch)
@@ -106,8 +112,9 @@ class Fbeta(EfficientLearnableBinaryAccess):
         self.zero_grad()
         zq = self.fq(q)
         zd = self.fd(d)
-        bitwise_log_match = self.sim(zq[:,None,:], zd[None,:,:])
-        log_match = bitwise_log_match.sum(dim=2)
+        log_p0, log_p1 = self.sim(zq[:,None], zd[None,:])
+        log_pb = log_poisson_binomial(log_p1, log_p0) #inverting log_p0 and log_p1 to count the zeros
+        log_match = log_pb[:,:,:self.match_dist+1].sum(dim=2)
         loss = self.loss(match, log_match, nbatch)
         loss = positive_loss_adaptative_l2_reg(loss, l2_ratio, [zq,zd])
         loss.backward()
