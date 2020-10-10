@@ -19,6 +19,7 @@ from .search_gridsearch import TestGridSearch
 from .search_radius import TestHammingRadiusSDS
 from .search_elba_base import TestEfficientLearnableBinaryAccess
 from .search_elba_fbeta import TestFbeta
+from .search_elba_hbkl import TestHBKL
 from .search_elba_mihash import TestMIHash
 from .search_elba_hashnet import TestHashNet
 from .metrics_oracle import TestOracleMetric

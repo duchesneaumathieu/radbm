@@ -24,6 +24,9 @@ Welcome to radbm's documentation!
 .. automodule:: radbm.search.elba.fbeta
    :members:
 
+.. automodule:: radbm.search.elba.hbkl
+   :members:
+
 .. automodule:: radbm.search.elba.mihash
    :members:
 

@@ -71,6 +71,9 @@ class Fbeta(EfficientLearnableBinaryAccess):
     sim : function (torch.Tensor \times torch.Tensor -> torch.Tensor)
         A function taking the query's Multi-Bernoulli code and the document's
         Multi-Bernoulli code and return the bitwise log probability that each bit match.
+    match_dist : int
+        The maximum number of dissimilar bits for which we consider that two binary
+        vectors are matching.
     ramp : function
         A ramping function used for ramping the log2(beta) at each steps.
     """
