@@ -6,76 +6,18 @@
 Welcome to radbm's documentation!
 =================================
 
-.. automodule:: radbm.loaders.base
-   :members:
+Rapid Access Database Benchmarks is a continually evolving package with the mission of evaluating the pros and cons of state-of-the-art approaches in the field of Search Data Structure Learning (SDSL). 
 
-.. automodule:: radbm.search.base
-   :members:
-
-.. automodule:: radbm.search.mbsds
-   :members:
-
-.. automodule:: radbm.search.radius
-   :members:
-
-.. automodule:: radbm.search.elba.base
-   :members:
-
-.. automodule:: radbm.search.elba.fbeta
-   :members:
-
-.. automodule:: radbm.search.elba.hbkl
-   :members:
-
-.. automodule:: radbm.search.elba.mihash
-   :members:
-
-.. automodule:: radbm.search.elba.hashnet
-   :members:
-
-.. automodule:: radbm.search.gridsearch
-   :members:
-
-.. automodule:: radbm.utils
-   :members:
-
-.. automodule:: radbm.utils.os
-   :members:
-
-.. automodule:: radbm.utils.gdrive.download
-   :members:
-
-.. automodule:: radbm.utils.fetch
-   :members:
-
-.. automodule:: radbm.utils.time.chronometer
-   :members:
-
-.. automodule:: radbm.utils.stats.generators
-   :members:
-
-.. automodule:: radbm.utils.stats.hypergeometric
-   :members:
-
-.. automodule:: radbm.utils.torch.multi_bernoulli.poisson_binomial
-   :members:
-
-.. automodule:: radbm.utils.torch.multi_bernoulli.log_arithmetic
-   :members:
-
-.. automodule:: radbm.metrics.oracle
-   :members:
-
-.. automodule:: radbm.metrics.hamming
-   :members:
-
-.. automodule:: radbm.metrics.sswr
-   :members:
+The main metric for evaluation is the Sequential Search Work Ratio (SSWR).
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-
+   
+   searches.rst
+   metrics.rst
+   loaders.rst
+   utils.rst
 
 
 Indices and tables
