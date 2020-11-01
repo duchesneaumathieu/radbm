@@ -78,7 +78,7 @@ class AlteredCoco(IRLoader):
     
     def iter_documents(self, batch_size, maximum=np.inf):
         which = self.which
-        N = min(maximum, len(self.altered_indexes))
+        N = min(maximum, len(self.original_indexes))
         nbatch = int(np.ceil(N//batch_size))
         for start in [i*batch_size for i in range(nbatch)]:
             if self.which != which:
