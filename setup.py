@@ -16,6 +16,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/duchesneaumathieu/radbm",
     packages=setuptools.find_packages(),
+    data_files=[('radbm/utils/gdrive', ['radbm/utils/gdrive/fileid.json'])],
     classifiers=[
         "Programming Language :: Python :: 3",
         'Intended Audience :: Science/Research',
