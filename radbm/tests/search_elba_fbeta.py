@@ -20,3 +20,17 @@ class TestFbeta(unittest.TestCase):
         model.batch_insert(x, range(32))
         out = model.batch_search(x)
         self.assertEqual(out, [{i} for i in range(32)])
+        
+    def test_raise(self):
+        model = Fbeta(
+            torch.nn.Linear(32,16),
+            torch.nn.Linear(32,16),
+            HashingMultiBernoulliSDS(1,1),
+            -np.log(32), # log(1/bs)
+            match_dist=0,
+            nindex=3, #16%3 != 0
+        )
+        x = torch.eye(32, dtype=torch.float)
+        r = torch.eye(32, dtype=torch.bool)
+        with self.assertRaises(ValueError):
+            model.step(x, x, r)

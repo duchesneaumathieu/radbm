@@ -5,7 +5,26 @@ from radbm.utils.torch import (
     multi_bernoulli_subset,
     multi_bernoulli_activated_equality,
     multi_bernoulli_activated_subset,
+    torch_log_prob_any,
 )
+
+def torch_prob_any(probs):
+    return 1 - (1-probs).prod(dim=-1)
+
+class TestLogAny(unittest.TestCase):
+    def test_torch_log_prob_any(self):
+        gen = torch.Generator().manual_seed(0xcafe)
+        probs = torch.zeros((2,3,4,32), dtype=torch.float64)
+        probs.uniform_(0, .1, generator=gen)
+        log_q0 = (1-probs).log()
+        log_q1 = probs.log()
+
+        log_nor, log_or = torch_log_prob_any(log_q0, log_q1)
+        prob_or = torch_prob_any(probs)
+        self.assertTrue(torch.allclose(prob_or, log_or.exp()))
+        a = log_nor.exp()+log_or.exp()
+        ones = torch.ones_like(a)
+        self.assertTrue(torch.allclose(a, ones))
 
 class TestMultiBernoulliLogArithmetic(unittest.TestCase):
     def test_multi_bernoulli_equality(self):

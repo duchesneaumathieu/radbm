@@ -4,4 +4,5 @@ from .log_arithmetic import (
     multi_bernoulli_subset,
     multi_bernoulli_activated_equality,
     multi_bernoulli_activated_subset,
+    torch_log_prob_any,
 )

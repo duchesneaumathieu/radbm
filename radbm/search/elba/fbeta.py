@@ -6,9 +6,11 @@ from radbm.utils import Ramp
 from radbm.search.elba import EfficientLearnableBinaryAccess
 from radbm.utils.torch import (
     torch_lme,
+    torch_lse,
     positive_loss_adaptative_l2_reg,
     multi_bernoulli_equality,
     log_poisson_binomial,
+    torch_log_prob_any,
 )
 
 def _importance(match, match_prob):
@@ -71,22 +73,45 @@ class Fbeta(EfficientLearnableBinaryAccess):
     sim : function (torch.Tensor \times torch.Tensor -> torch.Tensor)
         A function taking the query's Multi-Bernoulli code and the document's
         Multi-Bernoulli code and return the bitwise log probability that each bit match.
-    match_dist : int
+    match_dist : int (optional)
         The maximum number of dissimilar bits for which we consider that two binary
-        vectors are matching.
-    ramp : function
+        vectors are matching. (default=0)
+    nindex : int (optional)
+        The number of indexes. (default=1)
+    ramp : function (optional)
         A ramping function used for ramping the log2(beta) at each steps.
     """
-    def __init__(self, fq, fd, struct, log_match_prob, sim=multi_bernoulli_equality, match_dist=1, ramp=Ramp(0,1024,-64,-8)):
+    def __init__(self, fq, fd, struct, log_match_prob, sim=multi_bernoulli_equality, match_dist=0, nindex=1, ramp=Ramp(0,1024,-64,-8)):
         super().__init__(fq, fd, struct)
         self.sim = sim
         self.ramp = (lambda x: ramp) if isinstance(ramp, (int, float)) else ramp
         self.log_match_prob = log_match_prob
         self.match_dist = match_dist
+        self.nindex = nindex
         
-    def loss(self, match, log_match, nbatch=None):
+    def _loss(self, match, log_match, nbatch=None):
         log2_beta = self.ramp(nbatch)
         loss = fbeta_loss(match, log_match, 2**log2_beta, self.log_match_prob)
+        return loss
+    
+    def index_view(self, x):
+        bs, total_bits = x.shape
+        if total_bits%self.nindex!=0:
+            msg = 'The total numbers of bit should be divisible by the number of indexes. ({}%{} != 0)'
+            raise ValueError(msg.format(total_bits, self.nindex))
+        bits_per_index = total_bits//self.nindex
+        return x.view(bs, self.nindex, bits_per_index)
+    
+    def loss(self, q, d, match, l2_ratio=0.01, nbatch=None):
+        zq = self.index_view(self.fq(q))
+        zd = self.index_view(self.fd(d))
+        log_p0, log_p1 = self.sim(zq[:,None], zd[None,:])
+        log_pb = log_poisson_binomial(log_p1, log_p0) #inverting log_p0 and log_p1 to count the zeros
+        log_index1 = torch_lse(log_pb[..., :self.match_dist+1], dim=3)
+        log_index0 = torch_lse(log_pb[..., self.match_dist+1:], dim=3)
+        _, log_match = torch_log_prob_any(log_index0, log_index1)
+        loss = self._loss(match, log_match, nbatch)
+        loss = positive_loss_adaptative_l2_reg(loss, l2_ratio, [zq,zd])
         return loss
         
     def step(self, q, d, match, l2_ratio=0.01, nbatch=None):
@@ -113,13 +138,7 @@ class Fbeta(EfficientLearnableBinaryAccess):
             The loss of the current batch.
         """
         self.zero_grad()
-        zq = self.fq(q)
-        zd = self.fd(d)
-        log_p0, log_p1 = self.sim(zq[:,None], zd[None,:])
-        log_pb = log_poisson_binomial(log_p1, log_p0) #inverting log_p0 and log_p1 to count the zeros
-        log_match = log_pb[:,:,:self.match_dist+1].sum(dim=2)
-        loss = self.loss(match, log_match, nbatch)
-        loss = positive_loss_adaptative_l2_reg(loss, l2_ratio, [zq,zd])
+        loss = self.loss(q, d, match, l2_ratio=l2_ratio, nbatch=nbatch)
         loss.backward()
         clip_grad_value_(self.parameters(), 5)
         self.optim.step()

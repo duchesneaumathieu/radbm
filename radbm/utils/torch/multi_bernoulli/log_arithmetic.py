@@ -1,5 +1,6 @@
 import torch
-from radbm.utils.torch import torch_logsumexp
+from radbm.utils.torch import torch_lse, torch_logsumexp
+from .poisson_binomial import log_poisson_binomial
 logsigmoid = torch.nn.LogSigmoid()
 
 def multi_bernoulli_equality(xz, yz):
@@ -122,3 +123,28 @@ def multi_bernoulli_activated_subset(xz, yz, az):
     log_p0 = an + xp + yn
     log_p1 = torch_logsumexp(ap, an + xp + yp, an + xn + yn, an + xn + yp)
     return log_p0, log_p1
+
+def torch_log_prob_any(log_q0, log_q1):
+    """
+    Similar to x.any() but for log probabilities (instead of booleans). The any is taken
+    across the last dim.
+    
+    Parameters
+    ----------
+    log_q0 : torch.tensor (dtype=torch.float)
+        The log probability of each bits to be zero. The any operation is over
+        the last dim. shape=(a1,a2,a3,...,am,n) where n is the number of (independant)
+        Bernoullis. a1,a2,a3,...,am are arbitrary but should match with log_q1.
+    
+    log_q1 : torch.tensor (dtype=torch.float)
+        The log probability of each bits to be one. The any operation is over
+        the last dim. shape=(a1,a2,a3,...,am,n) where n is the number of (independant)
+        Bernoullis. a1,a2,a3,...,am are arbitrary but should match with log_q1.
+    
+    Returns
+    -------
+    log_nor : torch.tensor (dtype=torch.float)
+    log_or : torch.tensor (dtype=torch.float)
+    """
+    p = log_poisson_binomial(log_q0, log_q1)
+    return p[..., 0], torch_lse(p[..., 1:], dim=-1)

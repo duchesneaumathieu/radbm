@@ -21,7 +21,7 @@ class AlteredCoco(IRLoader):
         self, batch_global_scale_range=[1.,1.], generator=torch.default_generator, path=None,
         mode='relational_matrix', which='train', backend='numpy', device='cpu', rng=np.random):
         super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
-        if mode is not 'relational_matrix':
+        if mode != 'relational_matrix':
             raise NotImplementedError('mode={} not implemented yet'.format(mode))
         self.original_coco = coco_finder('squared_coco.hdf5', path)
         self.altered_coco = coco_finder('altered_coco.hdf5', path)

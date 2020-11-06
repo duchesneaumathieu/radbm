@@ -5,12 +5,16 @@ from .utils_torch_poisson_binomial import (
     TestLogPoissonBinomial,
     TestLogHammingBinomial,
 )
-from .utils_torch_multi_bernoulli_log_arithmetic import TestMultiBernoulliLogArithmetic
+from .utils_torch_multi_bernoulli_log_arithmetic import (
+    TestLogAny,
+    TestMultiBernoulliLogArithmetic,
+)
+    
 from .utils_torch_color import TestTorchColor
 from .utils_stats import (
     Test_least_k_subset_sum_generator,
     Test_greatest_k_multi_bernoulli_outcomes_generator,
-    TestHypergeometric
+    TestHypergeometric,
 )
 from .utils_time import TestChronometer
 from .loaders_base import TestLoader, TestIRLoader
