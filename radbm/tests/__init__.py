@@ -9,6 +9,7 @@ from .utils_torch_multi_bernoulli_log_arithmetic import (
     TestLogAny,
     TestMultiBernoulliLogArithmetic,
 )
+from .utils_torch_multi_bernoulli_match import TestHammingMatch
     
 from .utils_torch_color import TestTorchColor
 from .utils_stats import (

@@ -10,6 +10,10 @@ Additional features for pytorch
 .. automodule:: radbm.utils.torch.multi_bernoulli.log_arithmetic
    :members:
 
+.. automodule:: radbm.utils.torch.multi_bernoulli.match
+   :members:
+   :special-members: __call__
+
 Probabilistic Distributions
 ===========================
 .. automodule:: radbm.utils.time.chronometer

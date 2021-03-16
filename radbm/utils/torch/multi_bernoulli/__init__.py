@@ -6,3 +6,5 @@ from .log_arithmetic import (
     multi_bernoulli_activated_subset,
     torch_log_prob_any,
 )
+
+from .match import HammingMatch
