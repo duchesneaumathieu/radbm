@@ -14,6 +14,7 @@ The main metric for evaluation is the Sequential Search Work Ratio (SSWR).
    :maxdepth: 2
    :caption: Contents:
    
+   losses.rst
    searches.rst
    metrics.rst
    loaders.rst

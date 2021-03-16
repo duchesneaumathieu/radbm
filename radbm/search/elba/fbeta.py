@@ -109,7 +109,10 @@ class Fbeta(EfficientLearnableBinaryAccess):
         log_pb = log_poisson_binomial(log_p1, log_p0) #inverting log_p0 and log_p1 to count the zeros
         log_index1 = torch_lse(log_pb[..., :self.match_dist+1], dim=3)
         log_index0 = torch_lse(log_pb[..., self.match_dist+1:], dim=3)
-        _, log_match = torch_log_prob_any(log_index0, log_index1)
+        if self.nindex == 1:
+            log_match = log_index1
+        else:
+            _, log_match = torch_log_prob_any(log_index0, log_index1)
         loss = self._loss(match, log_match, nbatch)
         loss = positive_loss_adaptative_l2_reg(loss, l2_ratio, [zq,zd])
         return loss
