@@ -1,1 +1,2 @@
 from .binary_classification import FbetaLoss, BCELoss
+from .multi_bernoulli_matching import FbetaMultiBernoulliMatchingLoss, BCEMultiBernoulliMatchingLoss

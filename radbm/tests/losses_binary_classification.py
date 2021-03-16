@@ -51,6 +51,15 @@ class TestFbetaLoss(unittest.TestCase):
             expected = efl(pos, neg)
             self.assertTrue(torch.allclose(expected, torch.exp(-nfl(pos.log(), neg.log()))))
             self.assertTrue(expected > torch.exp(-fl(pos.log(), neg.log())))
+            
+    def test_missing_pairs_error(self):
+        x = torch.rand(10)
+        y = torch.rand(0)
+        f = FbetaLoss(beta=1/2, prob_y1=1/10)
+        with self.assertRaises(ValueError):
+            f(x, y)
+        with self.assertRaises(ValueError):
+            f(y, x)
 
 class TestBCELoss(unittest.TestCase):
     def test_bce_loss(self):
@@ -62,3 +71,12 @@ class TestBCELoss(unittest.TestCase):
             expected = torch.nn.BCELoss(weight=weight)(probs, y.float())
             loss = BCELoss(w1)(probs[y].log(), (1-probs)[~y].log())
             self.assertTrue(torch.allclose(expected, loss))
+            
+    def test_missing_pairs_error(self):
+        x = torch.rand(10)
+        y = torch.rand(0)
+        f = BCELoss(w1=1)
+        with self.assertRaises(ValueError):
+            f(x, y)
+        with self.assertRaises(ValueError):
+            f(y, x)

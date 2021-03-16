@@ -43,6 +43,12 @@ class FbetaLoss(object):
             Estimators of the log probability of a false positive. E.g.
             :math:`log(f_{\\theta}(x))` where :math:`f_{\\theta}` is the model and x is a negative data point.
         """
+        ntp = tp_log_probs.flatten().size(0)
+        nfp = fp_log_probs.flatten().size(0)
+        if ntp == 0 or nfp == 0:
+            mgs = 'Fbeta loss requires at least one positive and one negative pair, got {} and {} respectively.'
+            raise ValueError(mgs.format(ntp, nfp))
+            
         if self.estimator_sharing:
             #doing nothing
             t1_tp_log_probs = t2_tp_log_probs = tp_log_probs
@@ -98,6 +104,12 @@ class BCELoss(object):
             Estimators of the log probability of a true negative. E.g.
             :math:`log(1-f_{\\theta}(x))` where :math:`f_{\\theta}` is the model and x is a negative data point.
         """
+        ntp = tp_log_probs.flatten().size(0)
+        ntn = tn_log_probs.flatten().size(0)
+        if ntp == 0 or ntn == 0:
+            mgs = 'BCE loss requires at least one positive and one negative pair, got {} and {} respectively.'
+            raise ValueError(mgs.format(ntp, ntn))
+            
         n = len(tp_log_probs.flatten()) + len(tn_log_probs.flatten())
         s = self.w1*tp_log_probs.sum() + self.w0*tn_log_probs.sum()
         return -s/n

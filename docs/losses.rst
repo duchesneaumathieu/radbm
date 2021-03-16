@@ -10,3 +10,6 @@ Binary classification losses
 
 Binary vectors matching losses
 ==============================
+.. automodule:: radbm.losses.multi_bernoulli_matching
+   :members:
+   :special-members: __call__
