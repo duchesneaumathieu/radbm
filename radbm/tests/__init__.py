@@ -31,5 +31,6 @@ from .search_elba_hashnet import TestHashNet
 from .metrics_oracle import TestOracleMetric
 from .metrics_sswr import TestSSWR
 from .metrics_hamming import TestHammingPRCurve
+from .metrics_user_cost import TestUCK
 from .losses_binary_classification import TestFbetaLoss, TestBCELoss
 from .losses_multi_bernoulli_matching import TestFbetaMBMLoss, TestBCEMBMLoss
