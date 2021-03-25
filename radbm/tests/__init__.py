@@ -1,5 +1,7 @@
 from .utils import Test_unique_list, TestRamp
 from .utils_fetch import Test_fetch_file
+from .utils_numpy_logical import TestNumpyLogical
+from .utils_numpy_random import TestUniqueRandint, TestNoSubsetUniqueRandint
 from .utils_torch import TorchCast
 from .utils_torch_poisson_binomial import (
     TestLogPoissonBinomial,

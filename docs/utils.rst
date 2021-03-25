@@ -2,6 +2,15 @@
 Utility functions
 *****************
 
+Additional features for numpy
+===============================
+.. automodule:: radbm.utils.numpy.logical
+   :members:
+
+.. automodule:: radbm.utils.numpy.random
+   :members:
+
+
 Additional features for pytorch
 ===============================
 .. automodule:: radbm.utils.torch.multi_bernoulli.poisson_binomial
