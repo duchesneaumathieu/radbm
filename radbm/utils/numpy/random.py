@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.special import comb
+from itertools import combinations
 from radbm.utils.numpy.logical import isrepeat, issubset
 
 def enough_int(low, high, k):
@@ -239,4 +241,80 @@ def no_subset_unique_randint(low, high, n, l, x, rng=np.random):
     not_valid = issubset(samples, x)
     if any(not_valid):
         samples[not_valid] = no_subset_unique_randint(low, high, sum(not_valid), l, x[not_valid], rng=rng)
+    return samples
+
+def _uniform_n_choose_k_input_validation(n, k, t):
+    if t > comb(n, k):
+        msg = 'Cannot sample more than comb(n, k) = {} unique samples. However, got t = {}.'
+        raise ValueError(msg.format(comb(n, k), t))
+
+def uniform_n_choose_k_by_enumeration(n, k, t, rng=np.random):
+    """
+    Parameters
+    ----------
+    n : int
+        The number of elements to choose from.
+    k : int
+        The number of elements to choose without replacement.
+    t : int
+        The number of distinct vectors of k elements.
+    rng : numpy.random.generator.Generator
+        The random number generator used to sample the k-subsets. (default: numpy.random)
+    
+    Returns
+    -------
+    samples : numpy.ndarray (shape: (t, k))
+        t unique vectors of k unique integers from 0,...,n-1
+        
+    Raises
+    ------
+    ValueError
+        When t > comb(n, k).
+        
+    Notes
+    -----
+    This algorithms works in O(comb(n, k)) as it enumerates all possible combination before sampling
+    t from it without replacement.
+    """
+    _uniform_n_choose_k_input_validation(n, k, t)
+    c = np.array(list(combinations(range(n), k)))
+    samples = c[rng.choice(len(c), t, replace=False)]
+    return samples
+
+def uniform_n_choose_k_by_rejection(n, k, t, rng=np.random):
+    """
+    Parameters
+    ----------
+    n : int
+        The number of elements to choose from.
+    k : int
+        The number of elements to choose without replacement.
+    t : int
+        The number of distinct vectors of k elements.
+    rng : numpy.random.generator.Generator
+        The random number generator used to sample the k-subsets. (default: numpy.random)
+    
+    Returns
+    -------
+    samples : numpy.ndarray (shape: (t, k))
+        t unique vectors of k unique integers from 0,...,n-1
+    
+    Raises
+    ------
+    ValueError
+        When t > comb(n, k).
+        
+    Notes
+    -----
+    This algorithms is faster than uniform_n_choose_k_by_enumeration whenever t << comb(n, k).
+    Otherwise, uniform_n_choose_k_by_enumeration is preferable.
+    """
+    _uniform_n_choose_k_input_validation(n, k, t)
+    h = set()
+    samples = np.zeros((t, k), dtype=int)
+    duplicates = np.arange(t)
+    while True:
+        samples[duplicates] = np.sort(unique_randint(0, n, len(duplicates), k, rng=rng), axis=1)
+        duplicates = [n for n in duplicates if tuple(samples[n]) in h or h.add(tuple(samples[n]))]
+        if not duplicates: break
     return samples

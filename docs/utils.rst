@@ -4,6 +4,9 @@ Utility functions
 
 Additional features for numpy
 ===============================
+.. automodule:: radbm.utils.numpy.function
+   :members:
+
 .. automodule:: radbm.utils.numpy.logical
    :members:
 

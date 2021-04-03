@@ -1,7 +1,12 @@
 from .utils import Test_unique_list, TestRamp
 from .utils_fetch import Test_fetch_file
-from .utils_numpy_logical import TestNumpyLogical
-from .utils_numpy_random import TestUniqueRandint, TestNoSubsetUniqueRandint
+from .utils_numpy_function import TestNumpyFunction
+from .utils_numpy_logical import TestNumpyLogical, TestGraphRepr
+from .utils_numpy_random import (
+    TestUniqueRandint,
+    TestNoSubsetUniqueRandint,
+    TestUniformNChooseK,
+)
 from .utils_torch import TorchCast
 from .utils_torch_poisson_binomial import (
     TestLogPoissonBinomial,
@@ -21,6 +26,7 @@ from .utils_stats import (
 )
 from .utils_time import TestChronometer
 from .loaders_base import TestLoader, TestIRLoader
+from .loaders_rss_conjunctive_boolean import TestConjunctiveBooleanRSS
 from .search_base import TestBaseSDS
 from .search_mbsds import TestHashingMultiBernoulliSDS
 from .search_gridsearch import TestGridSearch

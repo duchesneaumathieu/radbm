@@ -9,6 +9,8 @@ from radbm.utils.numpy.random import (
     fast_unique_randint,
     unique_randint,
     no_subset_unique_randint,
+    uniform_n_choose_k_by_enumeration,
+    uniform_n_choose_k_by_rejection,
 )
 
 class TestUniqueRandint(unittest.TestCase):
@@ -50,3 +52,28 @@ class TestNoSubsetUniqueRandint(unittest.TestCase):
         x = unique_randint(123, 234, 10000, 80)
         y = no_subset_unique_randint(123, 234, 10000, 4, x)
         self.assertFalse(issubset(x, y).any())
+        
+class TestUniformNChooseK(unittest.TestCase):
+    def assertUnique(self, x):
+        h = set()
+        for v in x:
+            tv = tuple(v)
+            self.assertTrue(tv not in h)
+            h.add(tv)
+    
+    def test_uniform_n_choose_k(self):
+        n, k = 10, 5
+        t = 252 #comb(10, 5)
+        samples = uniform_n_choose_k_by_enumeration(n, k, t)
+        self.assertEqual(samples.shape, (t, k))
+        self.assertUnique(samples)
+        
+        samples = uniform_n_choose_k_by_rejection(n, k, t)
+        self.assertEqual(samples.shape, (t, k))
+        self.assertUnique(samples)
+    
+        with self.assertRaises(ValueError):
+            uniform_n_choose_k_by_enumeration(n, k, t+1)
+            
+        with self.assertRaises(ValueError):
+            uniform_n_choose_k_by_rejection(n, k, t+1)
