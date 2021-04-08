@@ -95,15 +95,15 @@ class ConjunctiveBooleanRSS(IRLoader):
         a = np.log(1 + (n - 1)*np.exp(log_residual))
         return a - np.log(n)
     
-    def _get_nbatch(self, batch_size):
-        nfull_batch = self.n//batch_size
-        nbatch = nfull_batch if self.n % batch_size == 0 else nfull_batch + 1
+    def _get_nbatch(self, batch_size, n):
+        nfull_batch = n//batch_size
+        nbatch = nfull_batch if n % batch_size == 0 else nfull_batch + 1
         return nbatch
     
     def iter_documents(self, batch_size, maximum=np.inf, rng=np.random):
         which = self.which
         n = min(maximum, self.n)
-        nbatch = self._get_nbatch(batch_size)
+        nbatch = self._get_nbatch(batch_size, n)
         for i in range(nbatch):
             if self.which != which:
                 msg = 'self.which changed while iterating, should be "{}" but is now "{}".'
@@ -115,7 +115,7 @@ class ConjunctiveBooleanRSS(IRLoader):
     def iter_queries(self, batch_size, maximum=np.inf, rng=np.random):
         which = self.which
         n = min(maximum, self.n)
-        nbatch = self._get_nbatch(batch_size)
+        nbatch = self._get_nbatch(batch_size, n)
         for i in range(nbatch):
             if self.which != which:
                 msg = 'self.which changed while iterating, should be "{}" but is now "{}".'
