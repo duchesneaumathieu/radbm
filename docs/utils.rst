@@ -26,6 +26,9 @@ Additional features for pytorch
    :members:
    :special-members: __call__
 
+.. automodule:: radbm.utils.torch.regularization
+   :members:
+
 Probabilistic Distributions
 ===========================
 .. automodule:: radbm.utils.time.chronometer

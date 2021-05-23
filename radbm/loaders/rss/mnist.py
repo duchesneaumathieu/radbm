@@ -27,6 +27,8 @@ class MnistCB(ConjunctiveBooleanRSS):
         The total number of index terms.
     n : int
         The database size.
+    n_queries : int
+        The number of queries to sample.
     queries_transform : str (optinal)
         Should be in 'r0', 'r1', 'r2', 'r3', 'sr0', 'sr1', 'sr2' or 'sr3'. It applies a rotation and/or a reflection
         to the index terms of the queries. It follows the Dihedral group syntaxe, e.g. sr2 indicates that a 180 degree
@@ -55,23 +57,23 @@ class MnistCB(ConjunctiveBooleanRSS):
         The random number generator used to generate the batches and the database/queries. Should be used for reproducibility.
     """
     def __init__(
-        self, k, l, m, n,
+        self, k, l, m, n, n_queries=None,
         queries_transform='r0', documents_transform='r0',
         path=None, download=True, 
-        mode='balanced', which='train',
+        mode='balanced', n_positives=None, which='train',
         backend='numpy', device='cpu',
         rng=np.random):
         
-        super().__init__(k, l, m, n, mode=mode, which=which, backend=backend, device=device, rng=rng)
+        super().__init__(k, l, m, n, n_queries=n_queries, mode=mode, n_positives=n_positives, which=which, backend=backend, device=device, rng=rng)
         which_xy = mnist_loader(path, download=download)
         tqx, vqx, wqx = [dihedral4(xy[0].reshape(-1,28,28), queries_transform) for xy in which_xy]
         tdx, vdx, wdx = [dihedral4(xy[0].reshape(-1,28,28), documents_transform) for xy in which_xy]
-        self.register_switch('train_qx', tqx)
-        self.register_switch('valid_qx', vqx)
-        self.register_switch('test_qx', wqx)
-        self.register_switch('train_dx', tdx)
-        self.register_switch('valid_dx', vdx)
-        self.register_switch('test_dx', wdx)
+        self.register_switch('train_qx', tqx.copy()) #.copy() because torch does not support negative strides.
+        self.register_switch('valid_qx', vqx.copy())
+        self.register_switch('test_qx', wqx.copy())
+        self.register_switch('train_dx', tdx.copy())
+        self.register_switch('valid_dx', vdx.copy())
+        self.register_switch('test_dx', wdx.copy())
         self.train_group['qx'] = self.train_qx
         self.valid_group['qx'] = self.valid_qx
         self.test_group['qx'] = self.test_qx
@@ -123,12 +125,14 @@ class MnistCB(ConjunctiveBooleanRSS):
         for q, r in super().iter_queries(batch_size, maximum=maximum, rng=rng):
             yield self.qx.data[q], r
     
-    def batch(self, size):
+    def batch(self, size, n_positives=None):
         """
         Parameters
         ----------
         size : int
             The batch size, i.e. the number of queries and documents to return.
+        n_positives : int (optional if mode!='unbalanced')
+            The number of positive sample, if mode=='balanced' this will be overwritten to size//2.
             
         Returns
         -------
@@ -145,5 +149,5 @@ class MnistCB(ConjunctiveBooleanRSS):
             matches with documents[j]. The way it is programmed, the diagonal (relevans[i, i]) is always True while the might
             be True or False dependant on the probability that a random query matches with a random document.
         """
-        q, d, r = super().batch(size)
+        q, d, r = super().batch(size, n_positives=n_positives)
         return self.qx.data[q], self.dx.data[d], r

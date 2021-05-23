@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from .distance_counting import conditional_distance_counts
 
 def hamming_distance(x, y, *args, **kwargs):
     """
@@ -59,33 +60,7 @@ def conditional_hamming_counts(documents, queries, relevances, batch_size=100):
     This assume that each sets in relevances is small compared to len(documents) and should
     be used on a GPU otherwise it is quite slow.
     """
-    m, n = queries.shape
-    if n != documents.shape[1]:
-        msg = 'queries and documents binary codes are not of the same lenght, got {} and {} respectively.'
-        raise ValueError(msg.format(n, documents.shape[1]))
-    if m != len(relevances):
-        msg = 'len(queries) != len(relevances), got {} != {}.'
-        raise ValueError(msg.format(m, len(relevances)))
-    
-    device = queries.device
-    nbatch = int(np.ceil(m/batch_size))
-    total_counts = torch.zeros(n+1, device=device, dtype=torch.int64)
-    relevant_counts = torch.zeros(n+1, device=device, dtype=torch.int64)
-    for i in range(nbatch):
-        a, b = i*batch_size, (i+1)*batch_size
-        dists = hamming_distance(queries[a:b,None], documents[None], dim=2)
-        
-        #update total_count
-        udists, ucounts = torch.unique(dists, return_counts=True)
-        total_counts[udists] += ucounts
-        
-        #update relevant_count
-        rows, cols = zip(*((i,j) for i, rel in enumerate(relevances[a:b]) for j in rel))
-        udists, ucounts = torch.unique(dists[(rows,cols)], return_counts=True)
-        relevant_counts[udists] += ucounts
-    
-    irrelevant_counts = total_counts - relevant_counts
-    return relevant_counts, irrelevant_counts
+    return conditional_distance_counts(documents, queries, relevances, hamming_distance, documents.shape[1], batch_size=batch_size)
 
 def conditional_counts_to_pr_curve(relevant_counts, irrelevant_counts, return_valid_dists=False):
     total_counts = relevant_counts + irrelevant_counts

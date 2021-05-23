@@ -166,6 +166,11 @@ def torch_cast_cpu(x, max_floating_point=32):
         return torch.tensor(x, dtype=torch.float16)
     return torch.tensor(x)
 
+def numpy_cast(data):
+    if isinstance(data, torch.Tensor):
+        return data.detach().cpu().numpy()
+    return data
+
 def torch_cast(x, max_floating_point=32):
     x = torch_cast_cpu(x, max_floating_point=max_floating_point)
     if torch.cuda.is_available(): x = x.cuda()

@@ -2,7 +2,7 @@ import numpy as np
 import unittest, torch
 from scipy.special import comb
 from radbm.loaders.rss import ConjunctiveBooleanRSS
-from radbm.utils.numpy.logical import issubset_product_with_trie
+from radbm.utils.numpy.logical import issubset, issubset_product_with_trie
 
 ConjunctiveBooleanRSS.ENUMERATE_MAX = 1000 #overwriting to accelerate tests. 
 
@@ -142,6 +142,23 @@ class TestConjunctiveBooleanRSS(unittest.TestCase):
             np.testing.assert_allclose(q1, q2)
             np.testing.assert_allclose(d1, d2)
             np.testing.assert_allclose(r1, r2)
+            
+    def test_unbalanced_batch(self):
+        bs = 256
+        k, l, m, n = 4, 8, 10000, 123
+        rss = ConjunctiveBooleanRSS(k, l, m, n, mode='unbalanced')
+        q, d, r = rss.batch(bs, n_positives=16)
+        self.assertEqual(r.sum(), 16)
+        self.assertEqual(len(r), 256)
+        r_ = issubset(q, d)
+        self.assertTrue(np.allclose(r, r_))
+            
+    def test_unbalanced_missing_kwarg_error(self):
+        bs = 23
+        k, l, m, n = 4, 8, 10000, 123
+        rss = ConjunctiveBooleanRSS(k, l, m, n, mode='unbalanced')
+        with self.assertRaises(ValueError):
+            rss.batch(bs)
     
     def test_reproducibility(self):
         self.assert_reproducible_batch(mode='balanced')

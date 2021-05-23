@@ -13,11 +13,15 @@ from radbm.utils.numpy.function import log_comb, softplusinv
 class ConjunctiveBooleanRSS(IRLoader):
     ENUMERATE_MAX=int(1e6)
     
-    def __init__(self, k, l, m, n, mode='balanced', which='train', backend='numpy', device='cpu', rng=np.random):
+    def __init__(self, k, l, m, n, n_queries=None, mode='balanced', n_positives=None, which='train', backend='numpy', device='cpu', rng=np.random):
         super().__init__(mode=mode, which=which, backend=backend, device=device, rng=rng)
         self.params = int(k), int(l), int(m), int(n)
         self.k, self.l, self.m, self.n = self.params
+        self.n_positives = n_positives
         qterms, dterms, self.relevants = self.generate_database_stucture()
+        self.n_queries = self.n if n_queries is None else n_queries
+        qterms = qterms[:self.n_queries]
+        self.relevants = self.relevants[:self.n_queries]
         self.register_switch('qterms', qterms)
         self.register_switch('dterms', dterms)
         getattr(self, self.which)()
@@ -25,6 +29,7 @@ class ConjunctiveBooleanRSS(IRLoader):
     def get_available_modes(self):
         return {
             'balanced',
+            'unbalanced',
             'block',
         }
     
@@ -114,7 +119,7 @@ class ConjunctiveBooleanRSS(IRLoader):
     
     def iter_queries(self, batch_size, maximum=np.inf, rng=np.random):
         which = self.which
-        n = min(maximum, self.n)
+        n = min(maximum, self.n_queries)
         nbatch = self._get_nbatch(batch_size, n)
         for i in range(nbatch):
             if self.which != which:
@@ -124,15 +129,14 @@ class ConjunctiveBooleanRSS(IRLoader):
             end = min(start+batch_size, n)
             yield self.qterms.data[start:end], self.relevants[start:end]
 
-    def generate_balanced_batch(self, bs):
+    def generate_batch(self, bs, n_positives):
         k, l, m, n = self.params
-        halfbs = bs//2
         relevants = np.zeros((bs,), dtype=bool)
-        relevants[:halfbs] = 1
+        relevants[:n_positives] = 1
         dterms = unique_randint(0, m, bs, l, rng=self.rng.rng)
         qterms = np.zeros((bs, k), dtype=int)
-        qterms[:halfbs] = self.generate_subsets(dterms[:halfbs])
-        qterms[halfbs:] = no_subset_unique_randint(0, m, bs-halfbs, k, dterms[halfbs:], rng=self.rng.rng)
+        qterms[:n_positives] = self.generate_subsets(dterms[:n_positives])
+        qterms[n_positives:] = no_subset_unique_randint(0, m, bs-n_positives, k, dterms[n_positives:], rng=self.rng.rng)
         return qterms, dterms, relevants
 
     def generate_block_batch(self, bs):
@@ -143,9 +147,15 @@ class ConjunctiveBooleanRSS(IRLoader):
         block = adjacency_list_to_matrix(relevants, bs)
         return qterms, dterms, block
     
-    def batch(self, size):
+    def batch(self, size, n_positives=None):
         if self.mode=='balanced':
-            q, d, r = self.generate_balanced_batch(size)
+            q, d, r = self.generate_batch(size, n_positives=size//2)
+        elif self.mode=='unbalanced':
+            n_positives = self.n_positives if n_positives is None else n_positives
+            if n_positives is None:
+                msg = 'n_positives must be provided when batch mode is unbalanced.'
+                raise ValueError(msg)
+            q, d, r = self.generate_batch(size, n_positives=n_positives)
         elif self.mode=='block':
             q, d, r = self.generate_block_batch(size)
             

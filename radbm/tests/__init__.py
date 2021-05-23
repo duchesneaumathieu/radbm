@@ -16,7 +16,10 @@ from .utils_torch_multi_bernoulli_log_arithmetic import (
     TestLogAny,
     TestMultiBernoulliLogArithmetic,
 )
-from .utils_torch_multi_bernoulli_match import TestHammingMatch
+from .utils_torch_multi_bernoulli_match import (
+    TestHammingMatch,
+    TestMultiIndexingMatch,
+)
     
 from .utils_torch_color import TestTorchColor
 from .utils_stats import (
@@ -24,6 +27,7 @@ from .utils_stats import (
     Test_greatest_k_multi_bernoulli_outcomes_generator,
     TestHypergeometric,
 )
+from .utils_torch_regularization import TestHuberLoss
 from .utils_time import TestChronometer
 from .loaders_base import TestLoader, TestIRLoader
 from .loaders_rss_conjunctive_boolean import TestConjunctiveBooleanRSS
@@ -36,10 +40,10 @@ from .search_elba_fbeta import TestFbeta
 from .search_elba_hbkl import TestHBKL
 from .search_elba_mihash import TestMIHash
 from .search_elba_hashnet import TestHashNet
-from .metrics_oracle import TestOracleMetric
-from .metrics_sswr import TestSSWR
 from .metrics_hamming import TestHammingPRCurve
+from .metrics_subset import TestSubsetDistance
 from .metrics_user_cost import TestUCK
+from .metrics_engine_metrics import TestTCR
 from .metrics_pre_ap import TestPreAP
 from .losses_binary_classification import TestFbetaLoss, TestBCELoss
 from .losses_multi_bernoulli_matching import TestFbetaMBMLoss, TestBCEMBMLoss

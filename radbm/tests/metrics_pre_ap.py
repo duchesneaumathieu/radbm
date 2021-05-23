@@ -82,7 +82,8 @@ class TestPreAP(unittest.TestCase):
         documents = torch.randint(0, 2, (8889, 64), dtype=torch.bool)
         relevants = [torch.unique(torch.randint(0, 8889, (30,))) for i in range(456)]
         
-        pre_aps = batch_pre_average_precision(queries, documents, relevants, hamming_distance, batch_size=173)
+        scoring_function = lambda q, d: hamming_distance(q, d, dim=-1)
+        pre_aps = batch_pre_average_precision(queries, documents, relevants, scoring_function, batch_size=173)
         
         scores0 = hamming_distance(queries[[0]], documents, dim=-1)
         pre_ap0 = pre_average_precision(scores0, relevants[0])
@@ -102,4 +103,4 @@ class TestPreAP(unittest.TestCase):
         
         missing_relevants = relevants[:-1]
         with self.assertRaises(ValueError):
-            batch_pre_average_precision(queries, documents, missing_relevants, hamming_distance, batch_size=173)
+            batch_pre_average_precision(queries, documents, missing_relevants, scoring_function, batch_size=173)

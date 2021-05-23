@@ -1,6 +1,6 @@
 import torch
 from radbm.losses import FbetaLoss, BCELoss
-from radbm.utils.torch import torch_log_prob_any, positive_loss_adaptative_l2_reg
+from radbm.utils.torch import HuberLoss
 
 def check_shape_helper(queries_logits, documents_logits, r, block):
     qbs = queries_logits.shape[0]
@@ -17,58 +17,23 @@ def check_shape_helper(queries_logits, documents_logits, r, block):
             msg = 'If not block (r.ndim==1), the number of queries and documents must be the same, got {} and {} respectively.'
             raise ValueError(msg.format(qbs, dbs))
 
-def view_helper(queries_logits, documents_logits, block, multi):
-    qsh = queries_logits.shape
-    dsh = documents_logits.shape
-    if block:
-        q_frontshape = (qsh[0], 1)
-        d_frontshape = (1, dsh[0])
-    else:
-        q_frontshape = qsh[:1]
-        d_frontshape = dsh[:1]
-        
-    if multi:
-        q_ncodes = 1 if queries_logits.ndim==2 else qsh[1]
-        d_ncodes = 1 if documents_logits.ndim==2 else dsh[1]
-        q_backshape = (q_ncodes, 1, qsh[-1])
-        d_backshape = (1, d_ncodes, dsh[-1])
-    else:
-        q_backshape = (qsh[-1],)
-        d_backshape = (dsh[-1],)
-        
-    q_view = queries_logits.view(q_frontshape + q_backshape)
-    d_view = documents_logits.view(d_frontshape + d_backshape)
-    return q_view, d_view
-
-def log_probs_helper(queries_logits, documents_logits, block, log_match):
-    multi = (queries_logits.ndim == 3 or documents_logits.ndim == 3)
-    queries_logits, documents_logits = view_helper(queries_logits, documents_logits, block, multi)
-    pos_log_probs, neg_log_probs = log_match(queries_logits, documents_logits)
-    if multi:
-        if block:
-            #*_log_probs.shape = (qsh[0], dsh[0], q_ncodes, d_ncodes)
-            #-> *_log_probs.shape = (qsh[0], dsh[0], ncodes)
-            frontshape = pos_log_probs.shape[:2]
-        else:
-            #*_log_probs.shape = (bs, q_ncodes, d_ncodes)
-            #-> *_log_probs.shape = (bs, ncodes)
-            frontshape = pos_log_probs.shape[:1]
-        ncodes = pos_log_probs.shape[-2] * pos_log_probs.shape[-1]
-        pos_log_probs = pos_log_probs.view(frontshape + (ncodes,))
-        neg_log_probs = neg_log_probs.view(frontshape + (ncodes,))
-        pos_log_probs, neg_log_probs = torch_log_prob_any(pos_log_probs, neg_log_probs)
-    return pos_log_probs, neg_log_probs
-
 class MultiBernoulliMatchingLoss(object):
     """
-    Abstract class, cannot use directly.
+    Abstract class, cannot be used directly.
     """
-    def __init__(self, log_match, l2_ratio=0, *args, **kwargs):
+    def __init__(self, log_match, reg=HuberLoss(1, 9), reg_alpha=0):
         self.log_match = log_match
-        self.l2_ratio = l2_ratio
-        self.loss = self._build_loss(*args, **kwargs)
+        self.reg = reg
+        self.reg_alpha = reg_alpha
+    
+    def regularization(self, loss, queries_logits, documents_logits):
+        if self.reg_alpha:
+            n = queries_logits.flatten().size(0) + documents_logits.flatten().size(0)
+            reg = (self.reg(queries_logits).sum() + self.reg(documents_logits).sum())/n
+            loss = loss + self.reg_alpha*reg
+        return loss
         
-    def __call__(self, queries_logits, documents_logits, r):
+    def get_log_probs(self, queries_logits, documents_logits, r):
         """
         Parameters
         ----------
@@ -96,12 +61,11 @@ class MultiBernoulliMatchingLoss(object):
         """
         block = (r.ndim == 2)
         check_shape_helper(queries_logits, documents_logits, r, block)
-        pos_log_probs, neg_log_probs = log_probs_helper(queries_logits, documents_logits, block, self.log_match)
-        loss = self.loss(*self._loss_inputs(pos_log_probs, neg_log_probs, r))
-        if self.l2_ratio:
-            loss = positive_loss_adaptative_l2_reg(loss, self.l2_ratio, [queries_logits, documents_logits])
-        return loss
-    
+        if block:
+            queries_logits = queries_logits.unsqueeze(1)
+            documents_logits = documents_logits.unsqueeze(0)
+        return self.log_match(queries_logits, documents_logits)
+        
 class FbetaMultiBernoulliMatchingLoss(MultiBernoulliMatchingLoss):
     """
     Callable, see MultiBernoulliMatchingLoss for documentation of how to call this.
@@ -111,24 +75,40 @@ class FbetaMultiBernoulliMatchingLoss(MultiBernoulliMatchingLoss):
     log_match : function
         A matching function which takes logits and output log probabilities.
         E.g. HammingMatch(dist=0).
-    l2_ratio : float
-        Adaptive l2 regularization, the higher the loss the higher the regularization.
-        The final loss is loss + alpha*L2 and alpha is choosen s.t.
-        l2_ratio*loss = alpha*L2. (the gradient does not go through alpha)
-    beta : float
+    log2_beta : float
         See FbetaLoss.
     prob_y1 : float
         See FbetaLoss.
+    naive : bool
+        See FbetaLoss
+    estimator_sharing : bool
+        See FbetaLoss
+    reg : function (optional)
+        The regularization over the logits to use. (default HuberLoss(1, 9))
+    reg_alpha : float (optional)
+        The factor to multiply the regularization with before adding it to the loss.
+        (default 0., i.e. deactivated regularization)
     """
-    def _build_loss(self, *args, **kwargs):
-        return FbetaLoss(*args, **kwargs)
+    def __init__(self, log_match, log2_beta, prob_y1, naive=False, estimator_sharing=True, reg=HuberLoss(1, 9), reg_alpha=0.,):
+        super().__init__(log_match, reg=reg, reg_alpha=reg_alpha)
+        self.loss = FbetaLoss(
+            log2_beta=log2_beta,
+            prob_y1=prob_y1,
+            naive=naive,
+            estimator_sharing=estimator_sharing,
+        )
     
-    def _loss_inputs(self, pos_log_probs, neg_log_probs, r):
+    def __call__(self, queries_logits, documents_logits, r, step=None):
+        neg_log_probs, pos_log_probs = self.get_log_probs(queries_logits, documents_logits, r)
+        
         not_r = ~r
         tp_log_probs = pos_log_probs[r]
         fp_log_probs = pos_log_probs[not_r]
-        return tp_log_probs, fp_log_probs
+        #F-beta loss does not need neg_log_probs.
         
+        loss = self.loss(tp_log_probs, fp_log_probs, step=step)
+        return self.regularization(loss, queries_logits, documents_logits)
+    
 class BCEMultiBernoulliMatchingLoss(MultiBernoulliMatchingLoss):
     """
     Callable, see MultiBernoulliMatchingLoss for documentation of how to call this.
@@ -138,18 +118,24 @@ class BCEMultiBernoulliMatchingLoss(MultiBernoulliMatchingLoss):
     log_match : function
         A matching function which takes logits and output log probabilities.
         E.g. HammingMatch(dist=0).
-    l2_ratio : float
-        Adaptive l2 regularization, the higher the loss the higher the regularization.
-        The final loss is loss + alpha*L2 and alpha is choosen s.t.
-        l2_ratio*loss = alpha*L2. (the gradient does not go through alpha)
-    w1 : float
-        See radbm.losses.BCELoss.
+    log2_lambda : float or tuple (optional)
+        See radbm.losses.BCELoss. (default: -1., i.e. usual BCE)
+    reg : function (optional)
+        The regularization over the logits to use. (default HuberLoss(1, 9))
+    reg_alpha : float (optional)
+        The factor to multiply the regularization with before adding it to the loss.
+        (default 0., i.e. deactivated regularization)
     """
-    def _build_loss(self, *args, **kwargs):
-        return BCELoss(*args, **kwargs)
+    def __init__(self, log_match, log2_lambda=-1., reg=HuberLoss(1, 9), reg_alpha=0.):
+        super().__init__(log_match, reg=reg, reg_alpha=reg_alpha)
+        self.loss = BCELoss(log2_lambda=log2_lambda)
     
-    def _loss_inputs(self, pos_log_probs, neg_log_probs, r):
+    def __call__(self, queries_logits, documents_logits, r, step=None):
+        neg_log_probs, pos_log_probs = self.get_log_probs(queries_logits, documents_logits, r)
+        
         not_r = ~r
         tp_log_probs = pos_log_probs[r]
-        tn_log_probs = neg_log_probs[not_r]
-        return tp_log_probs, tn_log_probs
+        tn_log_probs = neg_log_probs[not_r] #difference with Fbeta
+        
+        loss = self.loss(tp_log_probs, tn_log_probs, step=step)
+        return self.regularization(loss, queries_logits, documents_logits)

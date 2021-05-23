@@ -1,6 +1,28 @@
 import torch
 from radbm.metrics import user_cost_at_k_from_scores
 
+def pre_average_precision_from_user_cost(uck):
+    r"""
+    Compute the pre average precision from the user cost at k (:math:`\mathrm{UC}_k`)
+    using the following equation:
+    
+    .. math::
+        \sum_{k=1}^{|r|} \frac{k}{\mathrm{UC}_k}
+    
+    Parameters
+    ----------
+    uck : torch.tensor (shape: (k,))
+        The user cost at k, uck[k] must be :math:`\mathrm{UC}_k`.
+        
+    Returns
+    -------
+    pre_ap : torch.tensor (ndim: 0, dtype: float32)
+        The pre-average precision.
+    """
+    ks = torch.arange(1, len(uck)+1, device=uck.device)
+    pre_ap = (ks/uck).mean()
+    return pre_ap 
+
 def pre_average_precision(scores, relevants):
     """
     Compute the pre average precision from a scoring of each documents
@@ -32,12 +54,8 @@ def pre_average_precision(scores, relevants):
     TypeError
         If relevants.dtype is not torch.bool or torch.int64
     """
-    tck = user_cost_at_k_from_scores(scores, relevants)
-    #user_cost_at_k_from_scores already tested that relevants.dtype is int64 or bool
-    k = len(relevants) if relevants.dtype is torch.int64 else relevants.sum()
-    ks = torch.arange(1, k+1, device=scores.device)
-    pre_ap = (ks/tck).mean()
-    return pre_ap
+    uck = user_cost_at_k_from_scores(scores, relevants)
+    return pre_average_precision_from_user_cost(uck)
 
 def pre_mean_average_precision(scores, relevants):
     """
@@ -69,9 +87,8 @@ def batch_pre_average_precision(queries, documents, relevants, scoring_function,
     relevants : iterator of torch.tensor (dtype: int64 or bool)
     scoring_function : callable
         scoring_function takes a batch of query and a batch of documents and computes the
-        score if each pairs. The function should be broadcastable friendly and must have
-        the dim keywords. E.g. scoring_function(queries[:,None], documents[None], dim=-1)
-        should make sense.
+        score if each pairs. The function should be broadcastable friendly, i.e.
+        scoring_function(queries[:,None], documents[None]) should make sense.
     batch_size : int
         The size that will be used to split the queries. This is only used for memory purposes.
         In other words, this number should be as high as the memory allows it. 
@@ -98,7 +115,7 @@ def batch_pre_average_precision(queries, documents, relevants, scoring_function,
     for i in range(nbatch):
         beg = i*batch_size
         end = min(beg + batch_size, len(pre_aps))
-        scores = scoring_function(queries[beg:end], documents, dim=-1)
+        scores = scoring_function(queries[beg:end], documents)
         batch_relevants = relevants[beg:end]
         sub_pre_aps_list = [pre_average_precision(s, r) for s, r in zip(scores, batch_relevants)]
         pre_aps[beg:end] = torch.tensor(sub_pre_aps_list, device=queries.device)
