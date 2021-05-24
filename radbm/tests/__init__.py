@@ -32,6 +32,8 @@ from .utils_time import TestChronometer
 from .loaders_base import TestLoader, TestIRLoader
 from .loaders_rss_conjunctive_boolean import TestConjunctiveBooleanRSS
 from .search_base import TestBaseSDS
+from .search_dictionary import TestDictionarySearch
+from .search_binary_hamming_multi_probing import TestHammingMultiProbing
 from .search_mbsds import TestHashingMultiBernoulliSDS
 from .search_gridsearch import TestGridSearch
 from .search_radius import TestHammingRadiusSDS

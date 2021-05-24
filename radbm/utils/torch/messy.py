@@ -166,6 +166,22 @@ def torch_cast_cpu(x, max_floating_point=32):
         return torch.tensor(x, dtype=torch.float16)
     return torch.tensor(x)
 
+def dtype_cast(dtype):
+    dtype_str = str(dtype)
+    if 'float' in dtype_str: return float
+    elif 'int' in dtype_str: return int
+    elif 'bool' in dtype_str: return bool
+    else: raise TypeError(f'unknow type: {dtype_str}')
+    
+def tuple_cast(arr):
+    if arr.ndim == 0:
+        return dtype_cast(arr.dtype)(arr)
+    if arr.ndim == 1:
+        f = dtype_cast(arr.dtype)
+        return tuple(f(a) for a in arr)
+    else:
+        return tuple(tuple_cast(a) for a in arr)
+    
 def numpy_cast(data):
     if isinstance(data, torch.Tensor):
         return data.detach().cpu().numpy()
