@@ -1,3 +1,36 @@
+#================ loaders ================#
+from .loaders_base import TestLoader, TestIRLoader
+from .loaders_rss_conjunctive_boolean import TestConjunctiveBooleanRSS
+
+
+#================ losses ================#
+from .losses_binary_classification import TestFbetaLoss, TestBCELoss
+from .losses_matching_bernoulli import TestFbetaMBMLoss, TestBCEMBMLoss
+from .losses_matching_mihash import TestMIHashMatchingLoss
+from .losses_matching_hashnet import TestHashNetMatchingLoss
+
+
+#================ metrics ================#
+from .metrics_hamming import TestHammingPRCurve
+from .metrics_subset import TestSubsetDistance
+from .metrics_user_cost import TestUCK
+from .metrics_engine_metrics import TestTCR
+from .metrics_pre_ap import TestPreAP
+
+
+#================ search ================#
+from .search_base import TestBaseSDS
+from .search_dictionary import TestDictionarySearch
+from .search_binary_hamming_multi_probing import TestHammingMultiProbing
+#from .search_binary_bernoulli_multi_probing import TestBernoulliMultiProbing
+from .search_reduction_base import TestPointwiseReduction
+from .search_reduction_hamming import TestHammingReduction
+from .search_reduction_bernoulli import TestBernoulliReduction
+
+from .search_mbsds import TestHashingMultiBernoulliSDS #to be removed
+
+
+#================ utils ================#
 from .utils import Test_unique_list, TestRamp
 from .utils_fetch import Test_fetch_file
 from .utils_numpy_function import TestNumpyFunction
@@ -29,23 +62,3 @@ from .utils_stats import (
 )
 from .utils_torch_regularization import TestHuberLoss
 from .utils_time import TestChronometer
-from .loaders_base import TestLoader, TestIRLoader
-from .loaders_rss_conjunctive_boolean import TestConjunctiveBooleanRSS
-from .search_base import TestBaseSDS
-from .search_dictionary import TestDictionarySearch
-from .search_binary_hamming_multi_probing import TestHammingMultiProbing
-from .search_mbsds import TestHashingMultiBernoulliSDS
-from .search_gridsearch import TestGridSearch
-from .search_radius import TestHammingRadiusSDS
-from .search_elba_base import TestEfficientLearnableBinaryAccess
-from .search_elba_fbeta import TestFbeta
-from .search_elba_hbkl import TestHBKL
-from .search_elba_mihash import TestMIHash
-from .search_elba_hashnet import TestHashNet
-from .metrics_hamming import TestHammingPRCurve
-from .metrics_subset import TestSubsetDistance
-from .metrics_user_cost import TestUCK
-from .metrics_engine_metrics import TestTCR
-from .metrics_pre_ap import TestPreAP
-from .losses_binary_classification import TestFbetaLoss, TestBCELoss
-from .losses_multi_bernoulli_matching import TestFbetaMBMLoss, TestBCEMBMLoss

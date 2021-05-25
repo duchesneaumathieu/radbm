@@ -1,6 +1,6 @@
 import unittest, torch
-from radbm.metrics import hamming_distance
 from radbm.metrics import (
+    hamming_distance,
     pre_average_precision,
     pre_mean_average_precision,
     batch_pre_average_precision,

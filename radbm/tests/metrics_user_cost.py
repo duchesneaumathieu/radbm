@@ -1,6 +1,6 @@
 import unittest, torch
-from radbm.metrics.hamming import hamming_distance
 from radbm.metrics import (
+    hamming_distance,
     user_cost_at_k_original,
     user_cost_at_k_from_counts,
     user_cost_at_k,

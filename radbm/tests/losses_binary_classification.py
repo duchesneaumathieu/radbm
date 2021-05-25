@@ -68,7 +68,7 @@ class TestBCELoss(unittest.TestCase):
         n = len(y); n1 = y.sum(); n0 = n - n1
         for log2_lambda in torch.linspace(-10, -1, 100):
             lmda = 2**log2_lambda
-            w1 = len(y)*lmda/y.sum()
+            w1 = n*lmda/n1
             w0 = (n-n1*w1)/n0
             weight = y*w1 + (~y)*w0
             probs = torch.rand(100)

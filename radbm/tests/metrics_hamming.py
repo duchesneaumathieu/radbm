@@ -1,5 +1,5 @@
 import unittest, torch
-from radbm.metrics.hamming import hamming_pr_curve
+from radbm.metrics import hamming_pr_curve
 
 class TestHammingPRCurve(unittest.TestCase):
     def test_hamming_pr_curve(self):

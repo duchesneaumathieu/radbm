@@ -1,8 +1,7 @@
 import torch
-from torch.nn.utils import clip_grad_value_
 from torch.distributions import Categorical
 from radbm.utils.torch import torch_soft_hamming
-from radbm.search.elba import EfficientLearnableBinaryAccess
+from .utils import check_shape_helper
 
 def categorical_entropy(cat):
     """
@@ -64,55 +63,62 @@ class TriangularKernel(torch.nn.Module):
         centroids = self.centroids.view(*len(shape)*[1], -1)
         return self.relu(1 - (centroids-x).abs()/self.widths)
     
-class MIHash(EfficientLearnableBinaryAccess):
-    """
-    MIHash as in "MIHash: Online Hashing with Mutual Information"
-    by Fatih Cakir, Kun He, Sarah Adel Bargal and Stan Sclaroff.
+class MIHashMatchingLoss(object):
+    r"""
+    MIHashMatchingLoss as in `MIHash: Online Hashing with Mutual Information <https://arxiv.org/abs/1703.08919>`__.
 
     Parameters
     ----------
-    fq : torch.nn.Module
-        The query Multi-Bernoulli encoder.
-    fd : torch.nn.Module
-        The document Multi-Bernoulli encoder.
-    struct : BaseSDS subclass
-        The structure used in ELBA.
+    nbits : int
+        The number of bits in the codes.
     match_prob : float (in [0,1])
         The probability that there is a match given a random query
         and a random document.
     """
-    def __init__(self, fq, fd, struct, nbits, match_prob, *args, **kwargs):
-        super().__init__(fq, fd, struct, *args, **kwargs)
+    def __init__(self, nbits, match_prob):
         self.match_prob = match_prob
         self.kernel = TriangularKernel(torch.arange(0,nbits+1))
     
-    def step(self, q, d, match, l2_ratio=0):
+    def __call__(self, queries_logits, documents_logits, r, step=0):
         """
-        Do a training step.
-        
         Parameters
         ----------
         q : torch.Tensor
             A batch of queries.
         d : torch.Tensor
             A batch of documents.
-        match : torch.Tensor (dtype=torch.bool)
-            A matrix (2D tensor) with match[i,j] indicating if q[i] match with d[j]
+        r : torch.Tensor (dtype: torch.bool, ndim: 1 or 2)
+            A matrix (block mode) (2D tensor) with r[i,j] indicating if q[i] match with d[j] or a vector (1D tensor) with
+            r[i] indicating if q[i] match with d[i]
             
         Returns
         -------
         loss : torch.Tensor (size 1)
             The loss (negative mutual information) of the current batch.
         """
-        self.zero_grad()
-        qsign = torch.tanh(self.fq(q))
-        dsign = torch.tanh(self.fd(d))
-        sh = torch_soft_hamming(qsign[:,None], dsign[None,:]) #shape = (#queries, #documents)
+        if queries_logits.ndim != 2:
+            msg = f'queries_logits.ndim must be 2, got {queries_logits.ndim}.'
+            raise ValueError(msg)
+        if documents_logits.ndim != 2:
+            msg = f'documents_logits.ndim must be 2, got {documents_logits.ndim}.'
+            raise ValueError(msg)
+        if r.ndim not in {1, 2}:
+            msg = f'r.ndim must be 1 (normal) or 2 (block), got {r.ndim}.'
+            raise ValueError(msg)
+        if r.dtype != torch.bool:
+            msg = f'r must be boolean, got {r.dtype}.'
+            raise TypeError(msg)
+            
+        block = check_shape_helper(queries_logits, documents_logits, r)
+        if block:
+            queries_logits = queries_logits.unsqueeze(1)
+            documents_logits = documents_logits.unsqueeze(0)
+            
+        qsign = torch.tanh(queries_logits)
+        dsign = torch.tanh(documents_logits)
+        sh = torch_soft_hamming(qsign, dsign) #shape = (#queries, #documents) or (bs,)
         bins = self.kernel(sh)
-        pos_cat = bins[match].mean(dim=0)
-        neg_cat = bins[~match].mean(dim=0)
+        pos_cat = bins[r].mean(dim=0)
+        neg_cat = bins[~r].mean(dim=0)
         loss = -mi_categorical_bernoulli(pos_cat, neg_cat, self.match_prob)
-        loss.backward()
-        clip_grad_value_(self.parameters(), 5)
-        self.optim.step()
         return loss

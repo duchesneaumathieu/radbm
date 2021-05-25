@@ -1,21 +1,21 @@
-===================================
-Metrics for evaluating the searches
-===================================
+*******
+Metrics
+*******
 
-.. automodule:: radbm.metrics.hamming
+Searching
+=========
+
+.. automodule:: radbm.metrics.searching
    :members:
 
-.. automodule:: radbm.metrics.subset
+Ranking
+=======
+
+.. automodule:: radbm.metrics.ranking
    :members:
 
-.. automodule:: radbm.metrics.distance_counting
-   :members:
+Spatial
+=======
 
-.. automodule:: radbm.metrics.pre_ap
-   :members:
-
-.. automodule:: radbm.metrics.search_costs.user_cost
-   :members:
-
-.. automodule:: radbm.metrics.search_costs.engine_metrics
+.. automodule:: radbm.metrics.spatial
    :members:

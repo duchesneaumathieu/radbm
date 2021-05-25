@@ -87,8 +87,11 @@ class BCELoss(object):
     Similar to torch.nn.BCELoss, but where the weighting is class-based
     instead of data point-based. E.g. If y in {0,1}^n are classes and
     p \in [0, 1]^n are the model estimated probabilities then
-    torch.nn.BCELoss(weight)(p, y) = BCELoss(w1)(log(p)[y], log(1-p)[~y])
-    where weight = (~y)*(2-w1) + y*w1.
+    torch.nn.BCELoss(weight)(p, y) = BCELoss(log2_lambda)(log(p)[y], log(1-p)[~y])
+    where weight = (~y)*w0 + y*w1, with w1 = n*lamda/n1 and w0 = (n-n1*w1)/n0.
+    n = n1 + n0 and n1, n0 are the number of positive and negative samples respectively.
+    This formulation disentangle the concepts of oversampling and class weighting. i.e.,
+    when trying with different oversampling probability, we don't need to update log2_lambda to compensate the bias.
     
     Parameters
     ----------

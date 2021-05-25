@@ -1,5 +1,5 @@
 import unittest, torch
-from radbm.metrics.search_costs import (
+from radbm.metrics import (
     costs_at_k,
     total_cost_at_k,
     total_cost_ratio_from_costs,

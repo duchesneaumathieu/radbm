@@ -2,7 +2,7 @@ import torch
 from .poisson_binomial import log_hamming_binomial
 from .log_arithmetic import torch_log_prob_any
 from radbm.utils.torch import torch_lse
-from radbm.metrics.hamming import hamming_distance
+from radbm.metrics import hamming_distance
 logsigmoid = torch.nn.LogSigmoid()
 
 class MultiIndexingMatch(object):

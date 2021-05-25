@@ -1,39 +1,25 @@
 import torch
 from radbm.search.base import BaseSDS
-logsigmoid = torch.nn.LogSigmoid()
 
-class EfficientLearnableBinaryAccess(BaseSDS, torch.nn.Module):
+class PointwiseReduction(BaseSDS):
     """
-    EfficientLearnableBinaryAccess (ELBA) is a base class for concrete models.
-    Given a search data structure and two parametric encoding functions, one
-    for the queries (fq) and one for the documents (fd), both producing a 
-    Multi-Bernoulli code (i.e. in [0,1]^n) in its logits form (pre sigmoid).
-    ELBM uses the structure to store and retrieve data using the Multi-Bernoulli
-    code.
+    Abstract class, queries_reduction and documents_reduction methods need to be overwritten.
+    A Pointwise reduction is the simplest form of reduction. Each document is transformed without taking
+    the other documents in consideration. Similarly, each query is transformed without looking at the database.
     
     Parameters
     ----------
-    fq : torch.nn.Module
-        The parametric function of the queries outputting in logits (pre sigmoid).
-    fd : torch.nn.Module
-        The parametric function of the documents outputting in logits (pre sigmoid).
     struct : BaseSDS subclass
-        The structure used for storing and retrieval.
-    optim : torch.optim (optional)
-        The optimizer (minimizer) class used for the parametric function.
-        (default torch.optim.Adam)
-    lr : float (optional)
-        The learning rate of the optimizer. (default 0.001)
+        The data structure to reduce to.
     """
-    def __init__(self, fq, fd, struct, optim=torch.optim.Adam, lr=0.001):
-        torch.nn.Module.__init__(self)
-        self.fq = fq
-        self.fd = fd
+    def __init__(self, struct):
         self.struct = struct
-        self.optim = optim(self.parameters(), lr)
+    
+    def queries_reduction(self, queries):
+        raise NotImplementedError()
         
-    def _log_sigmoid_pairs(self, logits):
-        return torch.stack([logsigmoid(-logits), logsigmoid(logits)], dim=1)
+    def documents_reduction(self, documents):
+        raise NotImplementedError()
         
     def batch_insert(self, documents, indexes, *args, **kwargs):
         """
@@ -55,8 +41,8 @@ class EfficientLearnableBinaryAccess(BaseSDS, torch.nn.Module):
         -------
         self
         """
-        dmb = self._log_sigmoid_pairs(self.fd(documents))
-        self.struct.batch_insert(dmb, indexes, *args, **kwargs)
+        reduced_documents = self.documents_reduction(documents)
+        self.struct.batch_insert(reduced_documents, indexes, *args, **kwargs)
         return self
         
     def batch_search(self, queries, *args, **kwargs):
@@ -78,8 +64,8 @@ class EfficientLearnableBinaryAccess(BaseSDS, torch.nn.Module):
             Is the list of the relevant indexes for each queries. 
             len(indexes_list) = len(queries).
         """
-        qmb = self._log_sigmoid_pairs(self.fq(queries))
-        return self.struct.batch_search(qmb, *args, **kwargs)
+        reduced_queries = self.queries_reduction(queries)
+        return self.struct.batch_search(reduced_queries, *args, **kwargs)
         
     def batch_itersearch(self, queries, *args, **kwargs):
         """
@@ -101,18 +87,37 @@ class EfficientLearnableBinaryAccess(BaseSDS, torch.nn.Module):
             Each generator yield relevant indexes for the corresponding queries. 
             len(generator_list) = len(queries).
         """
-        qmb = self._log_sigmoid_pairs(self.fq(queries))
-        return self.struct.batch_itersearch(qmb, *args, **kwargs)
+        reduced_queries = self.queries_reduction(queries)
+        return self.struct.batch_itersearch(reduced_queries, *args, **kwargs)
     
+    def clear(self):
+        self.struct.clear()
+        
+class ModulePointwiseReduction(PointwiseReduction, torch.nn.Module):
+    """
+    Abstract class, queries_reduction and documents_reduction methods need to be overwritten.
+    A Pointwise reduction is the simplest form of reduction. Each document is transformed without taking
+    the other documents in consideration. Similarly, each query is transformed without looking at the database.
+    
+    Direct subclass of PointwiseReduction that implement get_state and set_state. Allowing the save and load methods.
+    This is done in a way that any attribute of the class torch.nn.Module will be saved.
+    
+    Parameters
+    ----------
+    struct : BaseSDS subclass
+        The data structure to reduce to.
+    """
+    def __init__(self, struct):
+        super().__init__(struct)
+        torch.nn.Module.__init__(self)
+        
     def get_state(self):
         return {
-            'f': self.state_dict(),
-            'optim': self.optim.state_dict(),
+            'module': self.state_dict(),
             'struct': self.struct.get_state(),
         }
     
     def set_state(self, state):
-        self.load_state_dict(state['f'])
-        self.optim.load_state_dict(state['optim'])
+        self.load_state_dict(state['module'])
         self.struct.set_state(state['struct'])
         return self

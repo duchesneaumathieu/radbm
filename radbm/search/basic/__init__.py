@@ -1,9 +1,4 @@
-from .basic import DictionarySearch
-from .binary import HammingMultiProbing #not in __all__ but still accessible (from radbm.search import HammingMultiProbing)
-from .reduction import (
-    HammingReduction, #not in __all__ but still accessible
-    BernoulliReduction, #not in __all__ but still accessible
-)
+from .dictionary import DictionarySearch
 
 # This lets Sphinx know you want to document binary.hamming_multi_probing.HammingMultiProbing as binary.HammingMultiProbing.
 # Solution from https://stackoverflow.com/a/66996523

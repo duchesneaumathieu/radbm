@@ -8,7 +8,7 @@ Welcome to radbm's documentation!
 
 Rapid Access Database Benchmarks is a continually evolving package with the mission of evaluating the pros and cons of state-of-the-art approaches in the field of Search Data Structure Learning (SDSL). 
 
-The main metric for evaluation is the Sequential Search Work Ratio (SSWR).
+The main metric for evaluation is the Total Work Ratio (TCR).
 
 .. toctree::
    :maxdepth: 2
