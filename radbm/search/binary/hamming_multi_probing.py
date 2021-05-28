@@ -163,6 +163,7 @@ class HammingMultiProbing(BaseSDS):
         return {
             'insert_radius': self.insert_radius,
             'search_radius': self.search_radius,
+            'halt_cost': self.halt_cost,
             'table': self.table.get_state(),
         }
     
@@ -175,6 +176,7 @@ class HammingMultiProbing(BaseSDS):
         """
         self.insert_radius = state['insert_radius']
         self.search_radius = state['search_radius']
+        self.halt_cost = state['halt_cost']
         self.table.set_state(state['table'])
         return self
     

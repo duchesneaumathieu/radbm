@@ -20,18 +20,19 @@ from .metrics_pre_ap import TestPreAP
 
 #================ search ================#
 from .search_base import TestBaseSDS
+from .search_heap import TestKeyValueHeap
 from .search_dictionary import TestDictionarySearch
 from .search_binary_hamming_multi_probing import TestHammingMultiProbing
-#from .search_binary_bernoulli_multi_probing import TestBernoulliMultiProbing
+from .search_binary_bernoulli_multi_probing import TestBernoulliMultiProbing
 from .search_reduction_base import TestPointwiseReduction
 from .search_reduction_hamming import TestHammingReduction
 from .search_reduction_bernoulli import TestBernoulliReduction
 
-from .search_mbsds import TestHashingMultiBernoulliSDS #to be removed
-
 
 #================ utils ================#
 from .utils import Test_unique_list, TestRamp
+from .utils_generators_smallest_subset_sums import TestSmallestSubsetSums
+from .utils_generators_likeliest_multi_bernoulli_outcomes import TestLikeliestMultiBernoulliOutcomes
 from .utils_fetch import Test_fetch_file
 from .utils_numpy_function import TestNumpyFunction
 from .utils_numpy_logical import TestNumpyLogical, TestGraphRepr
@@ -55,10 +56,6 @@ from .utils_torch_multi_bernoulli_match import (
 )
     
 from .utils_torch_color import TestTorchColor
-from .utils_stats import (
-    Test_least_k_subset_sum_generator,
-    Test_greatest_k_multi_bernoulli_outcomes_generator,
-    TestHypergeometric,
-)
+from .utils_stats import TestHypergeometric
 from .utils_torch_regularization import TestHuberLoss
 from .utils_time import TestChronometer

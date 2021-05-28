@@ -2,8 +2,13 @@
 Utility functions
 *****************
 
+Generators
+==========
+.. automodule:: radbm.utils.generators
+   :members:
+
 Additional features for numpy
-===============================
+=============================
 .. automodule:: radbm.utils.numpy.function
    :members:
 
@@ -29,20 +34,17 @@ Additional features for pytorch
 .. automodule:: radbm.utils.torch.regularization
    :members:
 
-Probabilistic Distributions
-===========================
-.. automodule:: radbm.utils.time.chronometer
-   :members:
-
-.. automodule:: radbm.utils.stats.generators
-   :members:
-
-.. automodule:: radbm.utils.stats.hypergeometric
+Probability and statistics
+==========================
+.. automodule:: radbm.utils.stats
    :members:
 
 Others
 ======
 .. automodule:: radbm.utils
+   :members:
+
+.. automodule:: radbm.utils.time.chronometer
    :members:
 
 .. automodule:: radbm.utils.os

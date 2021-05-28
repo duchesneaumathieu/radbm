@@ -1,3 +1,18 @@
+def identity(x):
+    """
+    The identity function.
+    
+    Parameters
+    ----------
+    x : object
+    
+    Returns
+    -------
+    x : object
+        The given input.
+    """
+    return x
+
 def unique_list(it):
     """
     Create a list from an iterable with only unique element and where
