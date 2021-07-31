@@ -1,16 +1,16 @@
 import torch
-from .utils import check_shape_helper
+from radbm.utils.torch import HuberLoss
+from .utils import check_shape_helper, RegularizationMatchingLoss
 softplus = torch.nn.Softplus()
 
-class HashNetMatchingLoss(object):
+class HashNetMatchingLoss(RegularizationMatchingLoss):
     r"""
     As in `HashNet: Deep Learning to Hash by Continuation  <https://arxiv.org/abs/1702.00758>`__.
 
     Parameters
     ----------
-    match_prob : float (in [0,1])
-        The probability that there is a match given a random query
-        and a random document, used for class balancing.
+    log2_lambda : float (in ]-infty,0])
+        Used for class balancing.
     alpha : float (optional)
         The HashNet's alpha used in the adaptative sigmoid, there is no recommendation in the article.
         Maybe 6/nbits is a good place to start. (default: 1)
@@ -19,8 +19,14 @@ class HashNetMatchingLoss(object):
         (default: 1)
     stage_length : int (optional)
         The number of steps before increasing the stage. (default: 10000)
+    reg : function (optional)
+        The regularization over the logits to use. (default HuberLoss(1, 9))
+    reg_alpha : float (optional)
+        The factor to multiply the regularization with before adding it to the loss.
+        (default 0., i.e. deactivated regularization)
     """
-    def __init__(self, log2_lambda=-1, alpha=1, beta0=1, stage_length=10000):
+    def __init__(self, log2_lambda=-1, alpha=1, beta0=1, stage_length=10000, reg=HuberLoss(1, 9), reg_alpha=0):
+        super().__init__(reg=reg, reg_alpha=reg_alpha)
         self.log2_lambda = log2_lambda
         self.alpha = alpha
         self.beta0 = beta0
@@ -28,7 +34,7 @@ class HashNetMatchingLoss(object):
     
     def _get_weight(self, r):
         lmda = 2**self.log2_lambda
-        n = len(r); n1 = r.sum(); n0 = n - n1
+        n = len(r.flatten()); n1 = r.sum(); n0 = n - n1
         w1 = n*lmda/n1
         w0 = (n-n1*w1)/n0
         return w1*r + w0*~r
@@ -78,4 +84,4 @@ class HashNetMatchingLoss(object):
         w = self._get_weight(r)
         losses = w*(softplus(ash) - r*ash)
         loss = losses.mean()
-        return loss
+        return self.regularization(loss, queries_logits, documents_logits)

@@ -149,3 +149,15 @@ class BaseSDS(StateObj):
         if type(self).itersearch == BaseSDS.itersearch:
             raise NotImplementedError('itersearch or batch_itersearch need to be overridden')
         return [self.itersearch(query, *args, **kwargs) for query in queries]
+
+    
+class Itersearch(object):
+    def __init__(self, iteratable_map, *args, **kwargs):
+        self.cost = 0
+        self.iterator = iter(iteratable_map(self, *args, **kwargs))
+        
+    def __iter__(self):
+        return self
+        
+    def __next__(self):
+        return next(self.iterator)

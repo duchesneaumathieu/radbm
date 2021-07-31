@@ -16,6 +16,7 @@ The main metric for evaluation is the Total Work Ratio (TCR).
    
    losses.rst
    searches.rst
+   match.rst
    metrics.rst
    loaders.rst
    utils.rst

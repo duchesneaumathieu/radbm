@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from itertools import islice
-from radbm.search.base import BaseSDS
+from radbm.search.base import BaseSDS, Itersearch
 from radbm.search import DictionarySearch
 from radbm.utils.torch import tuple_cast
 from radbm.utils.generators import likeliest_multi_bernoulli_outcomes
@@ -244,6 +244,19 @@ class BernoulliMultiProbing(BaseSDS):
             number = self.search_number if number is None else number
         return set.union(*islice(generator, number))
     
+    def _itersearch(self, itersearch, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False):
+        old = set()
+        for outcome, swap, comp, size in likeliest_multi_bernoulli_outcomes(*query, yield_stats=True):
+            new = self.table.search(tuple(outcome))
+            itersearch.cost += self.cost(swap, comp, size)
+            if not yield_duplicates:
+                new = new - old
+                old.update(new)
+            if new or yield_empty:
+                yield (new, itersearch.cost) if yield_cost else new
+            if itersearch.cost >= halt_cost:
+                break
+                
     def itersearch(self, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False, _check=True):
         r"""
         Parameters
@@ -287,18 +300,14 @@ class BernoulliMultiProbing(BaseSDS):
         if _check:
             query = _parse_multi_bernoulli_input(query, ndim=1)
             halt_cost = self.halt_cost if halt_cost is None else halt_cost
-        old = set()
-        total_cost = 0.
-        for outcome, swap, comp, size in likeliest_multi_bernoulli_outcomes(*query, yield_stats=True):
-            new = self.table.search(tuple(outcome))
-            total_cost += self.cost(swap, comp, size)
-            if not yield_duplicates:
-                new = new - old
-                old.update(new)
-            if new or yield_empty:
-                yield (new, total_cost) if yield_cost else new
-            if total_cost >= halt_cost:
-                break
+        return Itersearch(
+            self._itersearch,
+            query,
+            halt_cost=halt_cost,
+            yield_cost=yield_cost,
+            yield_empty=yield_empty,
+            yield_duplicates=yield_duplicates,
+        )
     
     def __repr__(self):
         buckets_size = [len(buckets) for buckets in self.table.values()]

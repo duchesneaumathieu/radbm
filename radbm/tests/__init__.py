@@ -9,6 +9,8 @@ from .losses_matching_bernoulli import TestFbetaMBMLoss, TestBCEMBMLoss
 from .losses_matching_mihash import TestMIHashMatchingLoss
 from .losses_matching_hashnet import TestHashNetMatchingLoss
 
+#================  match  ================#
+from .match_bernoulli_membership import TestMultiBernoulliMembershipMatch
 
 #================ metrics ================#
 from .metrics_hamming import TestHammingPRCurve

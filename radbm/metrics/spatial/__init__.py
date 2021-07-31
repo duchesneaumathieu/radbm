@@ -1,5 +1,6 @@
 from .hamming import (
     hamming_distance,
+    conditional_distance_counts,
     conditional_hamming_counts,
     hamming_pr_curve,
 )
@@ -9,6 +10,7 @@ from .subset import subset_distance
 # Solution from https://stackoverflow.com/a/66996523
 __all_exports = [
     hamming_distance,
+    conditional_distance_counts,
     conditional_hamming_counts,
     hamming_pr_curve,
     subset_distance,

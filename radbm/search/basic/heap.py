@@ -133,7 +133,7 @@ class KeyValueHeap(BaseSDS, list):
     def search(self, key=None):
         return self[0]
 
-    def pop(self, return_counts=None, key=identity):
+    def pop(self, return_counts=None, key=None):
         """
         Pop the smallest item off the heap, maintaining the heap invariant.
         

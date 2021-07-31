@@ -173,14 +173,19 @@ def dtype_cast(dtype):
     elif 'bool' in dtype_str: return bool
     else: raise TypeError(f'unknow type: {dtype_str}')
     
-def tuple_cast(arr):
+def _tuple_cast(arr, cast):
     if arr.ndim == 0:
-        return dtype_cast(arr.dtype)(arr)
+        return cast(arr)
     if arr.ndim == 1:
-        f = dtype_cast(arr.dtype)
-        return tuple(f(a) for a in arr)
+        return tuple(map(cast, arr))
     else:
-        return tuple(tuple_cast(a) for a in arr)
+        return tuple(_tuple_cast(a, cast) for a in arr)
+    
+def tuple_cast(arr, cast=None):
+    if isinstance(arr, torch.Tensor):
+        arr = arr.detach().cpu().numpy()
+    cast = dtype_cast(arr.dtype) if cast is None else cast
+    return _tuple_cast(arr, cast)
     
 def numpy_cast(data):
     if isinstance(data, torch.Tensor):

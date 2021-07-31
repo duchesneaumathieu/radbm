@@ -1,6 +1,7 @@
 from .pre_ap import (
     pre_average_precision,
     pre_mean_average_precision,
+    pre_average_precision_from_user_cost,
     batch_pre_average_precision,
 )
 
@@ -9,6 +10,7 @@ from .pre_ap import (
 __all_exports = [
     pre_average_precision,
     pre_mean_average_precision,
+    pre_average_precision_from_user_cost,
     batch_pre_average_precision,
 ]
 

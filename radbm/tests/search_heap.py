@@ -35,6 +35,7 @@ class TestKeyValueHeap(unittest.TestCase):
         self.assertEqual(sorted(sort_keys), sort_keys) #now they should be sorted.
         
     def test_keyvalue_counts(self):
+        None #because otherwise the above "5" is printed when `coverage run ...` is executed (weird stuff)
         """           5
                 8           9
             10     12   11    17

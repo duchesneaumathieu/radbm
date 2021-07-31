@@ -63,7 +63,7 @@ class TriangularKernel(torch.nn.Module):
         centroids = self.centroids.view(*len(shape)*[1], -1)
         return self.relu(1 - (centroids-x).abs()/self.widths)
     
-class MIHashMatchingLoss(object):
+class MIHashMatchingLoss(torch.nn.Module):
     r"""
     MIHashMatchingLoss as in `MIHash: Online Hashing with Mutual Information <https://arxiv.org/abs/1703.08919>`__.
 
@@ -76,10 +76,11 @@ class MIHashMatchingLoss(object):
         and a random document.
     """
     def __init__(self, nbits, match_prob):
+        super().__init__()
         self.match_prob = match_prob
         self.kernel = TriangularKernel(torch.arange(0,nbits+1))
     
-    def __call__(self, queries_logits, documents_logits, r, step=0):
+    def forward(self, queries_logits, documents_logits, r, step=0):
         """
         Parameters
         ----------

@@ -59,6 +59,7 @@ class MnistCB(ConjunctiveBooleanRSS):
     def __init__(
         self, k, l, m, n, n_queries=None,
         queries_transform='r0', documents_transform='r0',
+        queries_noise=0, documents_noise=0,
         path=None, download=True, 
         mode='balanced', n_positives=None, which='train',
         backend='numpy', device='cpu',
@@ -66,8 +67,8 @@ class MnistCB(ConjunctiveBooleanRSS):
         
         super().__init__(k, l, m, n, n_queries=n_queries, mode=mode, n_positives=n_positives, which=which, backend=backend, device=device, rng=rng)
         which_xy = mnist_loader(path, download=download)
-        tqx, vqx, wqx = [dihedral4(xy[0].reshape(-1,28,28), queries_transform) for xy in which_xy]
-        tdx, vdx, wdx = [dihedral4(xy[0].reshape(-1,28,28), documents_transform) for xy in which_xy]
+        tqx, vqx, wqx = [self.transform(xy[0], queries_transform, queries_noise) for xy in which_xy]
+        tdx, vdx, wdx = [self.transform(xy[0], documents_transform, documents_noise) for xy in which_xy]
         self.register_switch('train_qx', tqx.copy()) #.copy() because torch does not support negative strides.
         self.register_switch('valid_qx', vqx.copy())
         self.register_switch('test_qx', wqx.copy())
@@ -81,6 +82,10 @@ class MnistCB(ConjunctiveBooleanRSS):
         self.valid_group['dx'] = self.valid_dx
         self.test_group['dx'] = self.test_dx
         getattr(self, self.which)()
+        
+    def transform(self, x, dihedral, noise):
+        x = dihedral4(x.reshape(-1, 28, 28), dihedral)
+        return x + self.rng.rng.normal(0, noise, x.shape) if noise else x
     
     def iter_documents(self, batch_size, maximum=np.inf, rng=np.random):
         """

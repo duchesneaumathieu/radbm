@@ -7,8 +7,8 @@ def costs_at_k(candidates, relevants, N=None, device='cpu'):
     
     Parameters
     ----------
-    candidates : iterable of tuple (<set>, <float>)
-        Iterable of candidates (sets) and total engine cost (float).
+    candidates : iterable of set
+        Iterable of candidates (sets). This object must have a cost attribute (i.e., candidates.cost must work).
     relevants : set
         The set of relevant documents.
     N : int (optional)
@@ -31,18 +31,18 @@ def costs_at_k(candidates, relevants, N=None, device='cpu'):
     RuntimeError
         If the candidates does not contain all relevants documents and the candidates are larger or equal to N. 
     """
-    relevants = relevants.copy() #because we will destroy it.
+    relevants = set(relevants) #shallow copy, because we will destroy the set (not its content).
     candidates_size = list()
     relevant_counts = list()
     relevant_candidates_indices = list()
     k, eck = 0, torch.zeros(len(relevants), device=device)
     t = -1 # in case candidates is empty
-    for t, (cand, cost) in enumerate(candidates):
+    for t, cand in enumerate(candidates):
         new = relevants.intersection(cand)
         relevants -= new
         candidates_size.append(len(cand))
         if new:
-            eck[k:k+len(new)] = cost; k += len(new)
+            eck[k:k+len(new)] = candidates.cost; k += len(new)
             relevant_counts.append(len(new))
             relevant_candidates_indices.append(t)
     if relevants:
@@ -55,7 +55,7 @@ def costs_at_k(candidates, relevants, N=None, device='cpu'):
                    f' relevant documents are not yet found.'
                    f' Still, the database size is N = {N} < {M} + {len(relevants)} = {M+len(relevants)}.')
             raise RuntimeError(msg)
-        eck[k:] = 0 #engine cost is zero when halting
+        eck[k:] = candidates.cost #filling eck
         relevant_counts.append(len(relevants)) #add what is left
         relevant_candidates_indices.append(t+1)
         candidates_size.append(N - M)

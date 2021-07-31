@@ -141,7 +141,7 @@ class HammingMatch(MultiIndexingMatch):
             
         Returns
         -------
-        match : torch.tensor (dtype: float)
+        match : torch.tensor (dtype: bool)
             Whether the two Multi-Bernoulli's Hamming distance
             is below or equal to `dist`, shape = (c1, c2, ..., cm).
             

@@ -14,3 +14,18 @@ def check_shape_helper(queries_logits, documents_logits, r):
             msg = 'If not block (r.ndim==1), the number of queries and documents must be the same, got {} and {} respectively.'
             raise ValueError(msg.format(qbs, dbs))
     return block
+
+class RegularizationMatchingLoss(object):
+    """
+    Abstract class, cannot be used directly.
+    """
+    def __init__(self, reg, reg_alpha):
+        self.reg = reg
+        self.reg_alpha = reg_alpha
+    
+    def regularization(self, loss, queries_logits, documents_logits):
+        if self.reg_alpha:
+            n = queries_logits.flatten().size(0) + documents_logits.flatten().size(0)
+            reg = (self.reg(queries_logits).sum() + self.reg(documents_logits).sum())/n
+            loss = loss + self.reg_alpha*reg
+        return loss

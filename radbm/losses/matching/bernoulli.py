@@ -1,23 +1,15 @@
 import torch
 from radbm.losses import FbetaLoss, BCELoss
 from radbm.utils.torch import HuberLoss
-from .utils import check_shape_helper
+from .utils import check_shape_helper, RegularizationMatchingLoss
 
-class MultiBernoulliMatchingLoss(object):
+class MultiBernoulliMatchingLoss(RegularizationMatchingLoss):
     """
     Abstract class, cannot be used directly.
     """
     def __init__(self, log_match, reg=HuberLoss(1, 9), reg_alpha=0):
+        super().__init__(reg=reg, reg_alpha=reg_alpha)
         self.log_match = log_match
-        self.reg = reg
-        self.reg_alpha = reg_alpha
-    
-    def regularization(self, loss, queries_logits, documents_logits):
-        if self.reg_alpha:
-            n = queries_logits.flatten().size(0) + documents_logits.flatten().size(0)
-            reg = (self.reg(queries_logits).sum() + self.reg(documents_logits).sum())/n
-            loss = loss + self.reg_alpha*reg
-        return loss
         
     def get_log_probs(self, queries_logits, documents_logits, r):
         """

@@ -1,12 +1,12 @@
 import torch
 import numpy as np
 from itertools import chain, combinations
-from radbm.search.base import BaseSDS
+from radbm.search.base import BaseSDS, Itersearch
 from radbm.search import DictionarySearch
-from radbm.utils.torch import tuple_cast
+from radbm.utils.torch import tuple_cast, numpy_cast
 
 def _check_dtype_is_bool(x):
-    if x.dtype not in {np.bool, torch.bool}:
+    if x.dtype not in (np.bool, torch.bool):
         msg = f'dtype must be bool, got {x.dtype}'
         raise TypeError(msg)
             
@@ -97,6 +97,23 @@ class HammingMultiProbing(BaseSDS):
             queries[:,err] ^= True #reversing the inplace operation
         return indexes
     
+    def _itersearch(self, itersearch, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False):
+        #itersearch.cost exits! (and start at zero)
+        old = set()
+        n = len(query)
+        for err in _iter_errors(n, n):
+            q = query.copy()
+            q[err] ^= True
+            new = self.table.search(tuple(q)); itersearch.cost += 1.
+            if not yield_duplicates:
+                new = new - old
+                old.update(new)
+            if new or yield_empty:
+                if yield_cost: yield new, itersearch.cost
+                else: yield new
+            if itersearch.cost >= halt_cost:
+                break
+    
     def itersearch(self, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False):
         r"""
         Parameters
@@ -127,22 +144,16 @@ class HammingMultiProbing(BaseSDS):
             If queries.dtype is not boolean.
         """
         _check_dtype_is_bool(query)
+        query = numpy_cast(query)
         halt_cost = self.halt_cost if halt_cost is None else halt_cost
-        n = len(query)
-        old = set()
-        total_cost = 0.
-        for err in _iter_errors(n, n):
-            query[err] ^= True #fast inplace on GPU
-            new = self.table.search(tuple_cast(query)); total_cost += 1.
-            query[err] ^= True #reversing the inplace operation before yield!
-            if not yield_duplicates:
-                new = new - old
-                old.update(new)
-            if new or yield_empty:
-                if yield_cost: yield new, total_cost
-                else: yield new
-            if total_cost >= halt_cost:
-                break
+        return Itersearch(
+            self._itersearch,
+            query,
+            halt_cost=halt_cost,
+            yield_cost=yield_cost,
+            yield_empty=yield_empty,
+            yield_duplicates=yield_duplicates,
+        )
     
     def __repr__(self):
         buckets_size = [len(buckets) for buckets in self.table.values()]
