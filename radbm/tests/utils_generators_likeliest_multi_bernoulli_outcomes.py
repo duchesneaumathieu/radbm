@@ -20,6 +20,10 @@ class TestLikeliestMultiBernoulliOutcomes(unittest.TestCase):
         self.assertTrue(np.all(0<=np.diff(outcomes_nlp)))
         self.assertEqual(len(outcomes), 10)
         
+        #test yield_log_probs
+        outcomes, log_probs = zip(*islice(likeliest_multi_bernoulli_outcomes(lp0, lp1, yield_log_probs=True), 10))
+        self.assertTrue(np.allclose(outcomes_nlp, [-lp for lp in log_probs]))
+        
         #test yield_stats
         self.assertEqual(4, len(next(likeliest_multi_bernoulli_outcomes(lp0, lp1, yield_stats=True))))
         

@@ -1,5 +1,5 @@
 import unittest, torch
-from radbm.search import BernoulliReduction
+from radbm.search.reduction import BernoulliReduction
 
 class TestBernoulliReduction(unittest.TestCase):
     def test_bernoulli_reduction(self):

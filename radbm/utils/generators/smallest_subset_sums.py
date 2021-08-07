@@ -15,7 +15,7 @@ def _children(subset, subsum, values, produced):
                 produced.add(new)
                 yield (subsum - values[i] + values[j], new)
 
-def smallest_subset_sums(values, yield_stats=False):
+def smallest_subset_sums(values, yield_sums=False, yield_stats=False):
     """
     Generator that yields the subset's index for a set of values in
     increasing order of their sum. The values must be all positive.
@@ -24,6 +24,8 @@ def smallest_subset_sums(values, yield_stats=False):
     ----------
     values : numpy.ndarray (ndim: 1)
         The set values from which to take the subsets
+    yield_sums : bool (optional)
+        Whether to provide the sum of each subset.
     yield_stats : bool (optional)
         Whether to provide statistic about the search. If True, the function will also yield
         the number of swap, the number of comparison and the size of the heap used to generate
@@ -33,6 +35,8 @@ def smallest_subset_sums(values, yield_stats=False):
     ------
     subset : list of int
         Subset of index of the values in increasing order of their sum.
+    sum : float (if yield_sums is True)
+        The sum of the yielded subset.
     swap_count : int (if yield_stats is True)
         The number of swap done to maintain the heap while generating this subset.
     comp_count : int (if yield_stats is True)
@@ -52,5 +56,8 @@ def smallest_subset_sums(values, yield_stats=False):
     while heap:
         (subsum, subset), pop_sc, pop_cc = heap.pop()
         unsorted_subset = [perm[i] for i in subset] #unsort them after and make it a list.
-        yield (unsorted_subset, pop_sc+push_sc, pop_cc+push_cc, len(heap)) if yield_stats else unsorted_subset
+        support = (subsum,) if yield_sums else ()
+        if yield_stats:
+            support += pop_sc+push_sc, pop_cc+push_cc, len(heap)
+        yield (unsorted_subset,) + support if support else unsorted_subset
         push_sc, push_cc = heap.batch_insert(_children(subset, subsum, values, produced))

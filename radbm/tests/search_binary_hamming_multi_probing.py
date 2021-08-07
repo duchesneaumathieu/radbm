@@ -1,5 +1,5 @@
 import unittest, torch
-from radbm.search import HammingMultiProbing
+from radbm.search.binary import HammingMultiProbing
 
 class TestHammingMultiProbing(unittest.TestCase):
     def test_hamming_multi_probing(self):

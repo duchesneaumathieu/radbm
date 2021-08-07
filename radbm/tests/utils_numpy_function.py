@@ -5,9 +5,9 @@ from radbm.utils.numpy.function import log_comb, softplus, softplusinv, dihedral
 
 class TestNumpyFunction(unittest.TestCase):
     def test_log_comb(self):
-        n_list = [0, 0, 10, 10, 10, 30, 100, 100, 100]
-        k_list = [0, 3,  4,  0, 10, 19, 10,  85, 101]
-        places = [7, 7,  7,  7,  7,  7,  1,  -4,   7] #numerical stability
+        n_list = [0, 10, 10, 10, 30, 100, 100]
+        k_list = [0,  4,  0, 10, 19,  10,  85]
+        places = [7,  7,  7,  7,  7,   1,  -4] #numerical stability
         for n, k, p in zip(n_list, k_list, places):
             self.assertAlmostEqual(np.exp(log_comb(n, k)), comb(n, k), places=p)
             

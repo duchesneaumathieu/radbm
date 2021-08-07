@@ -1,6 +1,6 @@
 import unittest, torch
 from itertools import product
-from radbm.search import HammingMultiProbing
+from radbm.search.binary import HammingMultiProbing
 from radbm.search.reduction import HammingReduction
 
 class TestHammingReduction(unittest.TestCase):

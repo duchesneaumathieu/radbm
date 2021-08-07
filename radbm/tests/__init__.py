@@ -33,6 +33,7 @@ from .search_reduction_bernoulli import TestBernoulliReduction
 
 #================ utils ================#
 from .utils import Test_unique_list, TestRamp
+from .utils_generators_sorted_merge import TestSortedMerge
 from .utils_generators_smallest_subset_sums import TestSmallestSubsetSums
 from .utils_generators_likeliest_multi_bernoulli_outcomes import TestLikeliestMultiBernoulliOutcomes
 from .utils_fetch import Test_fetch_file
