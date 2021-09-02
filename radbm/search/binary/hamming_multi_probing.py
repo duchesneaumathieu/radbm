@@ -28,13 +28,20 @@ class HammingMultiProbing(BaseSDS):
         The Hamming distance radius for searching. The ball of radius search_radius around each query will be looked up
         in the hash table. Can be overwritten in the batch_search and search methods using the radius
         keyword. (default: 0)
+    probing : str (optional)
+        Should be 'all' or 'align'. If 'all', search will retrieve all documents matching with one of the query's tag. If
+        'align', search will retrieve document s.t. at least one of their i-th tag matchs with the i-th tag of the query. 
+        (default: 'all')
     halt_cost : float (optional)
         The cost at which to halt when generating candidates in the itersearch and batch_itersearch methods. The value
-        can be overwritten in those methods using the halt_cost keyword.
+        can be overwritten in those methods using the halt_cost keyword. (default: np.inf)
     """
-    def __init__(self, insert_radius=0, search_radius=0, halt_cost=np.inf):
+    def __init__(self, insert_radius=0, search_radius=0, probing='all', halt_cost=np.inf):
+        if probing not in ('all', 'align'):
+            raise ValueError(f'probing must be "all" or "align", got {probing}')
         self.insert_radius = insert_radius
         self.search_radius = search_radius
+        self.probing = probing
         self.halt_cost = halt_cost
         self.table = DictionarySearch()
         
@@ -42,7 +49,7 @@ class HammingMultiProbing(BaseSDS):
         r"""
         Parameters
         ----------
-        documents : numpy.ndarray or torch.tensor (dtype: bool, ndim: 2)
+        documents : numpy.ndarray or torch.tensor (dtype: bool, ndim: 2 or 3)
             The documents, must be binary vectors.
         indexes : iterable of hashable
             A sequence of unique identifier for each corresponding document.
@@ -60,18 +67,28 @@ class HammingMultiProbing(BaseSDS):
         """
         _check_dtype_is_bool(documents)
         radius = self.insert_radius if radius is None else radius
-        bs, n = documents.shape
+        if documents.ndim == 2:
+            l = 1
+            bs, n = documents.shape
+        elif documents.ndim == 3:
+            bs, l, n = documents.shape
+            documents = documents.view(bs*l, n)
+        else:
+            raise ValueError(f'documents.ndim must be 2 or 3, got {documents.ndim} (shape = {documents.shape})')
+        indexes = list(x for y in indexes for x in l*[y]) #repeat each index l time
         for err in _iter_errors(radius, n):
             documents[:,err] ^= True #fast inplace on GPU
-            self.table.batch_insert(tuple_cast(documents), indexes)
+            keys = tuple_cast(documents)
             documents[:,err] ^= True #reversing the inplace operation
+            keys = keys if self.probing=='all' else zip(bs*list(range(l)), keys) #append the tag id to each tag
+            self.table.batch_insert(keys, indexes)
         return self
     
     def batch_search(self, queries, radius=None):
         r"""
         Parameters
         ----------
-        queries : numpy.ndarray or torch.tensor (dtype: bool, ndim: 2)
+        queries : numpy.ndarray or torch.tensor (dtype: bool, ndim: 2 or 3)
             The queries, must be binary vectors.
         radius : None or int (optional)
             The radius at which to search. If None, self.search_radius will be used. (default: None)
@@ -88,37 +105,48 @@ class HammingMultiProbing(BaseSDS):
         """
         _check_dtype_is_bool(queries)
         radius = self.search_radius if radius is None else radius
-        bs, n = queries.shape
-        indexes = [set() for _ in range(n)]
+        if queries.ndim == 2:
+            k = 1
+            bs, n = queries.shape
+        elif queries.ndim == 3:
+            bs, k, n = queries.shape
+            queries = queries.view(bs*k, n)
+        else:
+            raise ValueError(f'queries.ndim must be 2 or 3, got {queries.ndim} (shape = {queries.shape})')
+        indexes = [set() for _ in range(bs)]
         for err in _iter_errors(radius, n):
             queries[:,err] ^= True #fast inplace on GPU
-            for old, new in zip(indexes, self.table.batch_search(tuple_cast(queries))):
-                old.update(new)
+            keys = tuple_cast(queries)
             queries[:,err] ^= True #reversing the inplace operation
+            keys = keys if self.probing=='all' else zip(bs*list(range(k)), keys) #append the tag id to each tag
+            for i, new in enumerate(self.table.batch_search(keys)):
+                indexes[i//k].update(new)
         return indexes
     
     def _itersearch(self, itersearch, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False):
         #itersearch.cost exits! (and start at zero)
         old = set()
-        n = len(query)
+        k, n = query.shape
         for err in _iter_errors(n, n):
             q = query.copy()
-            q[err] ^= True
-            new = self.table.search(tuple(q)); itersearch.cost += 1.
-            if not yield_duplicates:
-                new = new - old
-                old.update(new)
-            if new or yield_empty:
-                if yield_cost: yield new, itersearch.cost
-                else: yield new
-            if itersearch.cost >= halt_cost:
-                break
+            q[:,err] ^= True
+            keys = tuple_cast(q) if self.probing=='all' else zip(range(k), tuple_cast(q))
+            for key in keys:
+                new = self.table.search(key); itersearch.cost += 1
+                if not yield_duplicates:
+                    new = new - old
+                    old.update(new)
+                if new or yield_empty:
+                    if yield_cost: yield new, itersearch.cost
+                    else: yield new
+                if itersearch.cost >= halt_cost:
+                    return
     
     def itersearch(self, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False):
         r"""
         Parameters
         ----------
-        query : numpy.ndarray or torch.tensor (dtype: bool, ndim: 1)
+        query : numpy.ndarray or torch.tensor (dtype: bool, ndim: 1 or 2)
             The query, must be a binary vector.
         halt_cost : None or float (optional)
             The cost at which to halt. If None, self.halt_cost will be used. (default: None)
@@ -145,6 +173,7 @@ class HammingMultiProbing(BaseSDS):
         """
         _check_dtype_is_bool(query)
         query = numpy_cast(query)
+        query = query[None] if query.ndim==1 else query
         halt_cost = self.halt_cost if halt_cost is None else halt_cost
         return Itersearch(
             self._itersearch,
@@ -175,6 +204,7 @@ class HammingMultiProbing(BaseSDS):
             'insert_radius': self.insert_radius,
             'search_radius': self.search_radius,
             'halt_cost': self.halt_cost,
+            'probing': self.probing,
             'table': self.table.get_state(),
         }
     
@@ -188,6 +218,7 @@ class HammingMultiProbing(BaseSDS):
         self.insert_radius = state['insert_radius']
         self.search_radius = state['search_radius']
         self.halt_cost = state['halt_cost']
+        self.probing = state['probing']
         self.table.set_state(state['table'])
         return self
     

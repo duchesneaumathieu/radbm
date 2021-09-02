@@ -1,56 +1,14 @@
-import torch
+import torch, itertools
 import numpy as np
 from itertools import islice
 from radbm.search.base import BaseSDS, Itersearch
 from radbm.search import DictionarySearch
 from radbm.utils.torch import tuple_cast
-from radbm.utils.generators import likeliest_multi_bernoulli_outcomes
-from radbm.search.reduction.bernoulli import get_log_multi_bernoulli_probs
+from radbm.utils.numpy.function import numpy_log_sigmoid
+from radbm.utils.generators import likeliest_multi_bernoulli_outcomes, sorted_merge
 
-__torch_float = {torch.float16, torch.float32, torch.float64}
-    
-def _parse_multi_bernoulli_input(x, ndim):
-    #If x is logits
-    if isinstance(x, torch.Tensor):
-        if x.dtype not in __torch_float:
-            msg = ('If a torch.Tensor is given to BernoulliMultiProbing, it must be a float since it represents the logits '
-                   '(pre-sigmoid) of the probabilities of each bit to be one.')
-            raise TypeError(msg)
-        if x.ndim != ndim:
-            msg = (f'ndim is {x.ndim}, expected {ndim}.')
-            raise ValueError(msg)
-        log_probs0, log_probs1 = get_log_multi_bernoulli_probs(x) #the only reason why we don't want numpy
-                                                                  #maybe we can generalized this later.
-    #if x is tuple of log probabilities
-    elif isinstance(x, (list, tuple)):
-        if len(x) != 2:
-            msg = f'If a tuple (or list) is given to BernoulliMultiProbing, the length must be two. Got {len(x)}.'
-            raise ValueError(msg)
-        log_probs0, log_probs1 = x
-        if not isinstance(log_probs0, torch.Tensor) or not isinstance(log_probs1, torch.Tensor):
-            msg = (f'When a tuple (or list), say x, is given to BernoulliMultiProb, x[0] and x[1] must be torch.Tensors. '
-                   f'Got {type(log_probs0)} and {type(log_probs1)} respectively.')
-            raise TypeError(msg)
-        if log_probs0.ndim != ndim:
-            msg = (f'ndim of the first Tensor is {log_probs0.ndim}, expected {ndim}.')
-            raise ValueError(msg)
-        if log_probs1.ndim != ndim:
-            msg = (f'ndim of the second Tensor is {log_probs1.ndim}, expected {ndim}.')
-            raise ValueError(msg)
-        if log_probs0.dtype not in __torch_float or log_probs1.dtype not in __torch_float:
-            msg = (f'When a tuple (or list) of torch.Tensor, say x, is given to BernoulliMultiProb, ' 
-                   f'x[0] and x[1] must be float. Got {log_probs0.dtype} and {log_probs1.dtype} respectively.')
-            raise TypeError(msg)
-        if not torch.all(log_probs0<=0) or not torch.all(log_probs1<=0):
-            msg = (f'When a tuple (or list) of torch.Tensor, say x, is given to BernoulliMultiProb, ' 
-                   f'x[0] and x[1] must be negative since they must be log probabilities. '
-                   f'However, positive value(s) where found.')
-            raise TypeError(msg)
-    else:
-        msg = f'BernoulliMultiProbing takes torch.Tensor or a tuple of torch.Tensors. Got {str(type(x))}.'
-        raise TypeError(msg)
-        
-    return log_probs0.detach().cpu().numpy(), log_probs1.detach().cpu().numpy()
+torch_log_sigmoid = torch.nn.LogSigmoid()
+torch_floats = {torch.float16, torch.float32, torch.float64}
 
 class BernoulliMultiProbing(BaseSDS):
     r"""
@@ -70,6 +28,18 @@ class BernoulliMultiProbing(BaseSDS):
         The number of outcomes to search for in the hash table. The query's search_number most probable
         outcomes will be looked up in the hash table. Can be overwritten in the batch_search and search 
         methods using the number keyword. (default: 1)
+    insert_alternate_tags : bool (optional)
+        Whether to take outcomes from each Multi-Bernoulli in rotation, discarding the probability of
+        the outcomes. This only affect the batch_insert and insert methods and can be overwritten when calling
+        them. (default: True)
+    search_alternate_tags : bool (optional)
+        Whether to take outcomes from each Multi-Bernoulli in rotation, discarding the probability of
+        the outcomes. This only affect the batch_search and search methods and can be overwritten when calling
+        them. (default: False)
+    probing : str (optional)
+        Should be 'all' or 'align'. If 'all', search will retrieve all documents matching with one of the query's tag. If
+        'align', search will retrieve document s.t. at least one of their i-th tag matchs with the i-th tag of the query. 
+        (default: 'all')
     halt_cost : float (optional)
         The cost at which to halt when generating candidates in the itersearch and batch_itersearch methods. The value
         can be overwritten in those methods using the halt_cost keyword.
@@ -79,25 +49,83 @@ class BernoulliMultiProbing(BaseSDS):
         Swap is the number of heap swap, comp is the number of heap comparison, and size is the current heap size.
         (default: lambda swap,comp,size: swap+comp+1)
     """
-    def __init__(self, insert_number=1, search_number=1, halt_cost=np.inf, cost=lambda swap,comp,size: swap+comp+1):
+    def __init__(
+        self, insert_number=1, search_number=1, 
+        insert_alternate_tags=True, search_alternate_tags=False, probing='all',
+        halt_cost=np.inf, cost=lambda swap,comp,size: swap+comp+1):
+    
+        if probing not in ('all', 'align'):
+            raise ValueError(f'probing must be "all" or "align", got {probing}')
         self.insert_number = insert_number
         self.search_number = search_number
+        self.insert_alternate_tags = insert_alternate_tags
+        self.search_alternate_tags = search_alternate_tags
+        self.probing = probing
         self.halt_cost = halt_cost
         self.cost = cost
         self.table = DictionarySearch()
         
-    def batch_insert(self, documents, indexes, number=None):
+    def _parse_input(self, x):
+        if not isinstance(x, (torch.Tensor, np.ndarray)):
+            raise TypeError(f'Expected torch.Tensor or numpy.ndarray, got {str(type(x))}.')
+            
+        #adding the many Multi-Bernoulli dimension if not there.
+        if x.ndim == 2:
+            x = x[:, None, :]
+        
+        if x.ndim != 3:
+            raise ValueError(f'Expected x.ndim in [0, 1], got x.ndim={x.ndim}.')
+            
+        #checking dtype and computing log_probs
+        if isinstance(x, torch.Tensor):
+            if x.dtype not in torch_floats:
+                raise TypeError(f'Expected dtype to be float, got {x.dtype}.')
+            log_probs0 = torch_log_sigmoid(-x.detach()).cpu().numpy()
+            log_probs1 = torch_log_sigmoid(x.detach()).cpu().numpy()
+        else: #x is np.ndarray
+            if not issubclass(x.dtype.type, np.floating):
+                raise TypeError(f'Expected dtype to be float, got {x.dtype}.')
+            log_probs0 = numpy_log_sigmoid(-x)
+            log_probs1 = numpy_log_sigmoid(x)
+            
+        return log_probs0, log_probs1
+    
+    def _iter_key(self, log_probs0, log_probs1, alternate_tags):
+        tag_its = [
+            likeliest_multi_bernoulli_outcomes(lp0, lp1, yield_log_probs=True, yield_stats=True)
+            for lp0, lp1 in zip(log_probs0, log_probs1)
+        ]
+        if alternate_tags:
+            it = zip(itertools.cycle(range(len(tag_its))), itertools.chain.from_iterable(zip(*tag_its)))
+        else:
+            it = sorted_merge(*tag_its, key=lambda x: -x[1])
+        if self.probing=='all':
+            for id, (data, probs, *stats) in it:
+                yield tuple(data), stats
+        else: #probing=='align'
+            for id, (data, probs, *stats) in it:
+                yield (id, tuple(data)), stats
+    
+    def _insert(self, log_probs0, log_probs1, index, number, alternate_tags):
+        generator = self._iter_key(log_probs0, log_probs1, alternate_tags)
+        for key, stats in  islice(generator, number):
+            self.table.insert(key, index)
+        return self
+        
+    def batch_insert(self, documents, indexes, number=None, alternate_tags=None):
         r"""
         Parameters
         ----------
-        documents : torch.Tensor (dtype: float, ndim: 2) or tuple of two Torch.tensor
-            If torch.Tensor, the documents' logits, i.e., before applying the sigmoid. If tuple, the first tensor
-            most be the log probabilities of each bit to be zero and the second tensor most be the log probabilities
-            of each bit to be one.
+        documents : torch.Tensor or np.ndarray (dtype: float, ndim: 2 or 3)
+            The logits (i.e., before applying the sigmoid) of the Multi-Bernoulli. The first dimension
+            corresponds to the batch, the last corresponds to the bits and if ndim==3, the second dimension
+            is for multiple Multi-Bernoulli. 
         indexes : iterable of hashable
             A sequence of unique identifier for each corresponding document.
         number : None or int (optional)
             The number of outcomes to insert. If None, self.insert_number will be used. (default: None)
+        alternate_tags : None or bool (optional)
+            Overwrite the insert_alternate_tags. (default: None)
             
         Returns
         -------
@@ -106,148 +134,26 @@ class BernoulliMultiProbing(BaseSDS):
         Raises
         ------
         TypeError
-            If documents is not a torch.Tensor nor a tuple (or list) of two torch.Tensor
+            If documents.dtype is not a float.
         ValueError
-            If the torch.Tensor(s) ndim is not 2.
-        TypeError
-            If documents is torch.Tensor and documents.dtype is not float.
-        ValueError
-            If documents is a tuple (or a list) and len(documents) != 2.
-        TypeError
-            If documents is a tuple (or a list) and documents[0] or documents[1] are not torch.Tensor or
-            they don't correspond to log probabilities (i.e., negative float).
-        ValueError
-            If documents and indexes don't have the same length
+            If len(documents) != len(indexes).
         """
-        log_probs0, log_probs1 = _parse_multi_bernoulli_input(documents, ndim=2)
-        if len(log_probs0) != len(indexes):
-            msg = 'documents and indexes must have the same length, got {len(log_probs0)} and {len(indexes)} respectively.'
+        if len(documents) != len(indexes):
+            msg = f'documents and indexes must have the same length, got {len(documents)} and {len(indexes)} respectively.'
             raise ValueError(msg)
         
+        log_probs0, log_probs1 = self._parse_input(documents)
         number = self.insert_number if number is None else number
+        alternate_tags = self.insert_alternate_tags if alternate_tags is None else alternate_tags
         for lp0, lp1, index in zip(log_probs0, log_probs1, indexes):
-            self.insert((lp0, lp1), index, number=number, _check=False)
+            self._insert(lp0, lp1, index, number=number, alternate_tags=alternate_tags)
         return self
     
-    def insert(self, document, index, number=None, _check=True):
-        r"""
-        Parameters
-        ----------
-        document : torch.Tensor (dtype: float, ndim: 1) or tuple of two torch.Tensor
-            If torch.Tensor, the document' logits, i.e., before applying the sigmoid. If tuple, the first tensor
-            most be the log probabilities of each bit to be zero and the second tensor most be the log probabilities
-            of each bit to be one.
-        index : hashable
-            A unique identifier for the document.
-        number : None or int (optional)
-            The number of outcomes to insert. If None, self.insert_number will be used. (default: None)
-            
-        Returns
-        -------
-        self : BernoulliMultiProbing
-        
-        Raises
-        ------
-        TypeError
-            If document is not a torch.Tensor nor a tuple (or list) of two torch.Tensor
-        ValueError
-            If the torch.Tensor(s) ndim is not 1.
-        TypeError
-            If document is torch.Tensor and document.dtype is not float.
-        ValueError
-            If document is a tuple (or a list) and len(document) != 2.
-        TypeError
-            If document is a tuple (or a list) and document[0] or document[1] are not torch.Tensor or
-            they don't correspond to log probabilities (i.e., negative float).
-        """
-        if _check:
-            document = _parse_multi_bernoulli_input(document, ndim=1)
-            number = self.insert_number if number is None else number
-        generator = islice(likeliest_multi_bernoulli_outcomes(*document), number)
-        for outcome in generator:
-            self.table.insert(tuple(outcome), index)
-        return self
-    
-    def batch_search(self, queries, number=None):
-        r"""
-        Parameters
-        ----------
-        queries : torch.Tensor (dtype: float, ndim: 2) or tuple of two torch.Tensor
-            If torch.Tensor, the queries' logits, i.e., before applying the sigmoid. If tuple, the first tensor
-            most be the log probabilities of each bit to be zero and the second tensor most be the log probabilities
-            of each bit to be one.
-        number : None or int (optional)
-            The number of outcomes to search for in the hash table. If None,
-            self.insert_number will be used. (default: None)
-            
-        Returns
-        -------
-        indexes : list if sets
-            Each set contains the retrieved documents' identifier of the corresponding query.
-        
-        Raises
-        ------
-        TypeError
-            If queries is not a torch.Tensor nor a tuple (or list) of two torch.Tensor
-        ValueError
-            If the torch.Tensor(s) ndim is not 2.
-        TypeError
-            If queries is torch.Tensor and queries.dtype is not float.
-        ValueError
-            If queries is a tuple (or a list) and len(queries) != 2.
-        TypeError
-            If queries is a tuple (or a list) and queries[0] or queries[1] are not torch.Tensor or
-            they don't correspond to log probabilities (i.e., negative float).
-        """
-        log_probs0, log_probs1 = _parse_multi_bernoulli_input(queries, ndim=2)
-        number = self.search_number if number is None else number
-        return [self.search((lp0, lp1), number=number, _check=False) for lp0, lp1 in zip(log_probs0, log_probs1)]
-    
-    def search(self, query, number=None, _check=True):
-        r"""
-        Parameters
-        ----------
-        query : torch.Tensor (dtype: float, ndim: 1) or tuple of two torch.Tensor
-            If torch.Tensor, the queries' logits, i.e., before applying the sigmoid. If tuple, the first tensor
-            most be the log probabilities of each bit to be zero and the second tensor most be the log probabilities
-            of each bit to be one.
-        number : None or int (optional)
-            The number of outcomes to search for in the hash table. If None,
-            self.insert_number will be used. (default: None)
-            
-        Returns
-        -------
-        indexes : set
-            The retrieved documents' identifier for this query.
-        
-        Raises
-        ------
-        TypeError
-            If query is not a torch.Tensor nor a tuple (or list) of two torch.Tensor
-        ValueError
-            If the torch.Tensor(s) ndim is not 1.
-        TypeError
-            If query is torch.Tensor and query.dtype is not float.
-        ValueError
-            If query is a tuple (or a list) and len(query) != 2.
-        TypeError
-            If query is a tuple (or a list) and query[0] or query[1] are not torch.Tensor or
-            they don't correspond to log probabilities (i.e., negative float).
-        """
-        generator = self.itersearch(
-            query,
-            halt_cost=np.inf, #no early stopping in search!
-            yield_empty=True, #to also count the hash miss in islice
-            _check=_check
-        )
-        if _check:
-            number = self.search_number if number is None else number
-        return set.union(*islice(generator, number))
-    
-    def _itersearch(self, itersearch, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False):
+    def _itersearch(self, itersearch, lp0, lp1, alternate_tags, halt_cost,
+                    yield_cost, yield_empty, yield_duplicates):
         old = set()
-        for outcome, swap, comp, size in likeliest_multi_bernoulli_outcomes(*query, yield_stats=True):
-            new = self.table.search(tuple(outcome))
+        for key, (swap, comp, size) in self._iter_key(lp0, lp1, alternate_tags):
+            new = self.table.search(key)
             itersearch.cost += self.cost(swap, comp, size)
             if not yield_duplicates:
                 new = new - old
@@ -257,14 +163,59 @@ class BernoulliMultiProbing(BaseSDS):
             if itersearch.cost >= halt_cost:
                 break
                 
-    def itersearch(self, query, halt_cost=None, yield_cost=False, yield_empty=False, yield_duplicates=False, _check=True):
+    
+    def _search(self, log_probs0, log_probs1, number, alternate_tags):
+        generator = Itersearch(
+                self._itersearch,
+                lp0=log_probs0, lp1=log_probs1,
+                alternate_tags=alternate_tags,
+                halt_cost=np.inf, #no early stopping in search!
+                yield_cost=False,
+                yield_empty=True, #to also count the hash miss in islice
+                yield_duplicates=False, #does not matter since we do the union
+        )
+        return set.union(*islice(generator, number))
+    
+    def batch_search(self, queries, number=None, alternate_tags=None):
         r"""
         Parameters
         ----------
-        query : torch.Tensor (dtype: float, ndim: 1) or tuple of two torch.Tensor
-            If torch.Tensor, the queries' logits, i.e., before applying the sigmoid. If tuple, the first tensor
-            most be the log probabilities of each bit to be zero and the second tensor most be the log probabilities
-            of each bit to be one.
+        queries : torch.Tensor or numpy.ndarray(dtype: float, ndim: 2 or 3)
+            The logits (i.e., before applying the sigmoid) of the Multi-Bernoulli. The first dimension
+            corresponds to the batch, the last corresponds to the bits and if ndim==3, the second dimension
+            is for multiple Multi-Bernoulli. 
+        number : None or int (optional)
+            The number of outcomes to search for in the hash table. If None,
+            self.search_number will be used. (default: None)
+        alternate_tags : None or bool (optional)
+            Overwrite the search_alternate_tags. (default: None)
+            
+        Returns
+        -------
+        indexes : list of sets
+            Each set contains the retrieved documents' identifier of the corresponding query.
+        
+        Raises
+        ------
+        TypeError
+            If queries.dtype is not a float.
+        """
+        log_probs0, log_probs1 = self._parse_input(queries)
+        number = self.search_number if number is None else number
+        alternate_tags = self.insert_alternate_tags if alternate_tags is None else alternate_tags
+        return [self._search(lp0, lp1, number, alternate_tags) for lp0, lp1 in zip(log_probs0, log_probs1)]
+    
+    def batch_itersearch(self, queries, alternate_tags=None, halt_cost=None,
+                         yield_cost=False, yield_empty=False, yield_duplicates=False):
+        r"""
+        Parameters
+        ----------
+        queries : torch.Tensor or numpy.ndarray(dtype: float, ndim: 2 or 3)
+            The logits (i.e., before applying the sigmoid) of the Multi-Bernoulli. The first dimension
+            corresponds to the batch, the last corresponds to the bits and if ndim==3, the second dimension
+            is for multiple Multi-Bernoulli. 
+        alternate_tags : None or bool (optional)
+            Overwrite the search_alternate_tags. (default: None)
         halt_cost : None or float (optional)
             The cost at which to halt. If None, self.halt_cost will be used. (default: None)
         yield_cost : bool (optional)
@@ -286,28 +237,22 @@ class BernoulliMultiProbing(BaseSDS):
         Raises
         ------
         TypeError
-            If query is not a torch.Tensor nor a tuple (or list) of two torch.Tensor
-        ValueError
-            If the torch.Tensor(s) ndim is not 1.
-        TypeError
-            If query is torch.Tensor and query.dtype is not float.
-        ValueError
-            If query is a tuple (or a list) and len(query) != 2.
-        TypeError
-            If query is a tuple (or a list) and query[0] or query[1] are not torch.Tensor or
-            they don't correspond to log probabilities (i.e., negative float).
+            If queries.dtype is not a float.
         """
-        if _check:
-            query = _parse_multi_bernoulli_input(query, ndim=1)
-            halt_cost = self.halt_cost if halt_cost is None else halt_cost
-        return Itersearch(
-            self._itersearch,
-            query,
-            halt_cost=halt_cost,
-            yield_cost=yield_cost,
-            yield_empty=yield_empty,
-            yield_duplicates=yield_duplicates,
-        )
+        log_probs0, log_probs1 = self._parse_input(queries)
+        alternate_tags = self.insert_alternate_tags if alternate_tags is None else alternate_tags
+        halt_cost = self.halt_cost if halt_cost is None else halt_cost
+        return [
+            Itersearch(
+                self._itersearch,
+                lp0=lp0, lp1=lp1,
+                alternate_tags=alternate_tags,
+                halt_cost=halt_cost,
+                yield_cost=yield_cost,
+                yield_empty=yield_empty,
+                yield_duplicates=yield_duplicates,
+            ) for lp0, lp1 in zip(log_probs0, log_probs1)
+        ]
     
     def __repr__(self):
         buckets_size = [len(buckets) for buckets in self.table.values()]

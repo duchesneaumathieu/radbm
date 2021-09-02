@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from scipy.special import comb
-from radbm.utils.numpy.function import log_comb, softplus, softplusinv, dihedral4
+from radbm.utils.numpy.function import log_comb, softplus, softplusinv, dihedral4, numpy_log_sigmoid
 
 class TestNumpyFunction(unittest.TestCase):
     def test_log_comb(self):
@@ -33,3 +33,9 @@ class TestNumpyFunction(unittest.TestCase):
         
         with self.assertRaises(ValueError):
             dihedral4(x, 'bad input')
+            
+    def test_numpy_log_sigmoid(x):
+        x = np.linspace(-10, 10, 1000)
+        log_sig = numpy_log_sigmoid(x)
+        sig = 1 / (1 + np.exp(-x))
+        np.allclose(log_sig, np.log(sig))

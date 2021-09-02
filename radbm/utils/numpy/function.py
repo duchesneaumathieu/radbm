@@ -72,3 +72,11 @@ def dihedral4(x, transform='r0'):
     for f in _transforms_map[transform]:
         x = f(x)
     return x
+
+def numpy_log_sigmoid(x):
+    """
+    Computes -log(1 + exp(-x)) with numerical stability.
+    """
+    m = np.maximum(-x, 0)
+    x = np.exp(-np.abs(x))
+    return - np.log(1 + x) - m
