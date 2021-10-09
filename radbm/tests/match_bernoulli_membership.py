@@ -50,6 +50,16 @@ class TestMultiBernoulliMembershipMatch(unittest.TestCase):
             expected_p = approx_membership_match(q[i], d[i], N=100000, rng=rng)
             self.assertAlmostEqual(float(p[i]), float(expected_p), places=2)
             
+        log_p0_2d, log_p1_2d = match.soft_match(q_logit[:,None], d_logit[None,:])
+        p_2d = log_p1_2d.exp()
+        for i in range(bs):
+            for j in range(bs):
+                expected_p = exact_membership_match(q[i], d[j])
+                self.assertAlmostEqual(float(p_2d[i, j]), float(expected_p), places=6)
+
+                #expected_p = approx_membership_match(q[i], d[j], N=100000, rng=rng) #slow
+                #self.assertAlmostEqual(float(p_2d[i, j]), float(expected_p), places=2)
+            
         match = MultiBernoulliMembershipMatch(terms=[1])
         log_p0, log_p1 = match.soft_match(q_logit, d_logit) #make sure it runs
             
@@ -63,19 +73,9 @@ class TestMultiBernoulliMembershipMatch(unittest.TestCase):
         
         match = MultiBernoulliMembershipMatch()
         match.soft_match(q_logit, d_logit) #make sure this works
-        #If x.ndim != 2.
+        #If x.ndim + 1 != y.ndim.
         with self.assertRaises(ValueError):
-            match.soft_match(q_logit[0], d_logit)
-            
-        #If y.ndim != 3.
-        with self.assertRaises(ValueError):
-            match.soft_match(q_logit, d_logit[0])
-            
-        #If x.shape[0] != y.shape[0] (i.e., different batch size).
-        with self.assertRaises(ValueError):
-            match.soft_match(q_logit[:4], d_logit)
-        with self.assertRaises(ValueError):
-            match.soft_match(q_logit, d_logit[:4])
+            match.soft_match(q_logit[None], d_logit)
             
         #If x.shape[1] != y.shape[2] (i.e., different number of bits).
         with self.assertRaises(ValueError):
@@ -106,4 +106,7 @@ class TestMultiBernoulliMembershipMatch(unittest.TestCase):
         expected_hard_match = torch.tensor([True, False])
         match = MultiBernoulliMembershipMatch()
         hard_match = match.hard_match(q_logit, d_logit)
+        self.assertTrue(torch.equal(hard_match, expected_hard_match))
+        
+        hard_match = match.hard_match(q_logit[None], d_logit[None])[0] #adding one dim and removing it.
         self.assertTrue(torch.equal(hard_match, expected_hard_match))

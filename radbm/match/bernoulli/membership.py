@@ -5,13 +5,13 @@ logsigmoid = torch.nn.LogSigmoid()
 from radbm.utils.torch import torch_logsumexp, torch_logsubexp
 
 def _membership_log_terms(log_x0, log_x1, log_y0, log_y1, l, terms):
-    log_total = None
+    log_total = None #total should start at 0 so log_total should be -inf, hence the None.
     for t in terms:
         if t == 0: continue #avoid empty combination
         for combination in itertools.combinations(range(l), t):
-            log_p0 = log_x0 + log_y0[:, combination].sum(dim=1)
-            log_p1 = log_x1 + log_y1[:, combination].sum(dim=1)
-            log_p = torch_logsumexp(log_p0, log_p1).sum(dim=1)
+            log_p0 = log_x0 + log_y0[..., combination, :].sum(dim=-2)
+            log_p1 = log_x1 + log_y1[..., combination, :].sum(dim=-2)
+            log_p = torch_logsumexp(log_p0, log_p1).sum(dim=-1)
             log_total = log_p if log_total is None else torch_logsumexp(log_total, log_p)
     return log_total
 
@@ -52,53 +52,46 @@ class MultiBernoulliMembershipMatch(object):
         ----------
         x : torch.tensor (dtype: float)
             A batch of Multi-Bernolli's logits (pre-sigmoid).
-            x.shape = (batch_size, number_of_bits).
+            x.shape = (..., number_of_bits).
         y : torch.tensor (dtype: float)
             A batch of l Multi-Bernoulli's logits (pre-sigmoid).
-            y.shape = (batch_size, l, number_of_bits).
+            y.shape = (..., l, number_of_bits).
             
         Returns
         -------
-        log_probs_not_match : torch.tensor (dtype: float)
-            shape = (batch_size,). log_probs_not_match[i] is the
+        log_probs_not_match : torch.tensor (dtype: float).
+            log_probs_not_match[i] is the
             log probability that each of the l Multi-Bernoulli
             parametrized by y[i] is different than the
             Multi-Bernoulli parameterized x[i].
-        log_probs_match : torch.tensor (dtype: float)
-            shape = (batch_size,). log_probs_match[i] is the
+        log_probs_match : torch.tensor (dtype: float). 
+            log_probs_match[i] is the
             log probability that at least one of the l
             Multi-Bernoulli parametrized by y[i] is equal
             to the Multi-Bernoulli parameterized x[i].
             
+        Notes
+        -----
+        x.shape[:-1] does not broadcast with y.shape[:-2].
+            
         Raises
         ------
         ValueError
-            If x.ndim != 2.
+            If x.ndim + 1 != y.ndim.
         ValueError
-            If y.ndim != 3.
-        ValueError
-            If x.shape[0] != y.shape[0] (i.e., different batch size).
-        ValueError
-            If x.shape[1] != y.shape[2] (i.e., different number of bits).
+            If x.shape[-1] != y.shape[-1] (i.e., different number of bits).
         ValueError
             If no valid odd term (i.e., within 1 up to l) is given in terms.
         """
-        if x.ndim != 2:
-            raise ValueError(f'x.ndim must be two, got {x.ndim}.')
-            
-        if y.ndim != 3:
-            raise ValueError(f'y.ndim must be three, got {y.ndim}.')
+        if x.ndim + 1 != y.ndim:
+            raise ValueError(f'y.ndim must be 1 + x.ndim, got y.ndim={y.ndim} and x.ndim={x.ndim}.')
         
-        if x.shape[0] != y.shape[0]:
-            raise ValueError(f'Incompatible batch size for x and y, '
-                             f'got {x.shape[1]} and {y.shape[2]} respectively.')
-        
-        if x.shape[1] != y.shape[2]:
+        if x.shape[-1] != y.shape[-1]:
             raise ValueError(f'The number of bits of each Multi-Bernoulli must '
-                             f'be the same for both x and y, got {x.shape[1]} and'
-                             f'{y.shape[2]} respectively.')
+                             f'be the same for both x and y, got {x.shape[-1]} and'
+                             f'{y.shape[-1]} respectively.')
 
-        l = y.shape[1]
+        l = y.shape[-2]
         x0, x1, y0, y1 = map(logsigmoid, (-x, x, -y, y))
 
         terms = range(1, l+1) if self.terms is None else self.terms
@@ -118,4 +111,4 @@ class MultiBernoulliMembershipMatch(object):
         return torch_logsubexp(evn_log_sum_plus_1, odd_log_sum), torch_logsubexp(odd_log_sum, evn_log_sum)
     
     def hard_match(self, x, y):
-        return (~((0 < x)[:, None] ^ (0 < y))).all(dim=2).any(dim=1)
+        return (~((0 < x)[..., None, :] ^ (0 < y))).all(dim=-1).any(dim=-1)

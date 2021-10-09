@@ -13,8 +13,8 @@ from .losses_matching_hashnet import TestHashNetMatchingLoss
 from .match_bernoulli_membership import TestMultiBernoulliMembershipMatch
 
 #================ metrics ================#
-from .metrics_hamming import TestHammingPRCurve
-from .metrics_subset import TestSubsetDistance
+from .metrics_hamming import TestHammingCosts, TestHammingPRCurve
+from .metrics_superset import TestSupersetCost
 from .metrics_user_cost import TestUCK
 from .metrics_engine_metrics import TestTCR
 from .metrics_pre_ap import TestPreAP
@@ -24,11 +24,13 @@ from .metrics_pre_ap import TestPreAP
 from .search_base import TestBaseSDS
 from .search_heap import TestKeyValueHeap
 from .search_dictionary import TestDictionarySearch
+from .search_trie import TestTrie
 from .search_binary_hamming_multi_probing import TestHammingMultiProbing
 from .search_binary_bernoulli_multi_probing import TestBernoulliMultiProbing
 from .search_reduction_base import TestPointwiseReduction
 from .search_reduction_hamming import TestHammingReduction
 from .search_reduction_bernoulli import TestBernoulliReduction
+from .search_superset_trie import TestSupersetTrieSearch
 
 
 #================ utils ================#

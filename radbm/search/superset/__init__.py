@@ -1,9 +1,7 @@
-from .basic import DictionarySearch, KeyValueHeap, Trie
+from .superset_trie_search import SupersetTrieSearch
 
 __all_exports = [
-    DictionarySearch,
-    KeyValueHeap,
-    Trie,
+    SupersetTrieSearch,
 ]
 
 for e in __all_exports:

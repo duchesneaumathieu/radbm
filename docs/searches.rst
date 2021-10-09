@@ -11,9 +11,13 @@ Basic search Data structures
 Binary-based data structures
 ============================
 
-The following class can be imported using both from radbm.search import <structure name> and from radbm.search.binary import <structure name>.
-
 .. automodule:: radbm.search.binary
+   :members:
+
+Superset search data structure 
+==============================
+
+.. automodule:: radbm.search.superset
    :members:
 
 Search data structure reduction

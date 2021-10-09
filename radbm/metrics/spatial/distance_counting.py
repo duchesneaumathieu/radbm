@@ -7,14 +7,12 @@ def conditional_distance_counts(documents, queries, relevances, distance_functio
     
     Parameters
     ----------
-    documents : torch.Tensor (2D, dtype=torch.bool)
-        The binary reprentation of a batch of documents (database).
-        documents[i] is the ith document. documents.shape[1] must be 
-        equal to queries.shape[1]. (should also be on the same device as queries)
+    documents : torch.Tensor
+        The code of a batch of documents (database).
+        documents[i] is the ith document.
     queries : torch.Tensor (2D, dtype=torch.bool)
-        The binary reprentation of a batch of queries. queries[i]
-        is the ith query. queries.shape[1] must be equal to
-        documents.shape[1]. (should also be on the same device as documents)
+        The code of a batch of queries. queries[i]
+        is the ith query. 
     relevances : list of set of int
         len(relevances) must be len(queries). For each corresponding query,
         it give the set of relevant documents (given by its index). Explicitly,
@@ -30,11 +28,11 @@ def conditional_distance_counts(documents, queries, relevances, distance_functio
     Returns
     -------
     relevant_counts : torch.Tensor (1D, dtype=torch.float)
-        len(relevant_counts) = queries.shape[1] + 1 (also equal to documents.shape[1] + 1) and
+        len(relevant_counts) = maximum_distance + 1 and
         relevant_dcounts[i] is the number of relevant documents at distance i.
     irrelevant_counts : torch.Tensor (1D, dtype=torch.float)
-        len(irrelevant_countst) = queries.shape[1] + 1 (also equal to documents.shape[1] + 1) and
-        irrelevant_counts[i] is the number of irrelevant documents be at distance i.
+        len(irrelevant_countst) = maximum_distance + 1 and
+        irrelevant_counts[i] is the number of irrelevant documents at distance i.
         
     Notes
     -----
@@ -42,9 +40,6 @@ def conditional_distance_counts(documents, queries, relevances, distance_functio
     be used on a GPU otherwise it is quite slow.
     """
     m, n = queries.shape
-    if n != documents.shape[1]:
-        msg = 'queries and documents binary codes are not of the same lenght, got {} and {} respectively.'
-        raise ValueError(msg.format(n, documents.shape[1]))
     if m != len(relevances):
         msg = 'len(queries) != len(relevances), got {} != {}.'
         raise ValueError(msg.format(m, len(relevances)))
@@ -55,7 +50,7 @@ def conditional_distance_counts(documents, queries, relevances, distance_functio
     relevant_counts = torch.zeros(max_distance+1, device=device, dtype=torch.int64)
     for i in range(nbatch):
         a, b = i*batch_size, (i+1)*batch_size
-        dists = distance_function(queries[a:b,None], documents[None], dim=2)
+        dists = distance_function(queries[a:b,None], documents[None])
         
         #update total_count
         udists, ucounts = torch.unique(dists, return_counts=True)

@@ -69,7 +69,7 @@ def torch_lse(tensor, dim=None, keepdims=False):
 
 def torch_lme(tensor, dim=None, keepdims=False):
     #log mean exp
-    return torch_lse(tensor, dim, keepdims) - np.sum(np.log(tensor.shape))
+    return torch_lse(tensor, dim, keepdims) - np.sum(np.log(tensor.shape)) #BUG HERE, only work with dim=None...
 
 def torch_categorical_entropy(log_p, dim=-1, keepdims=False):
     log_p = torch.where(log_p==-np.inf, torch.zeros_like(log_p), log_p)

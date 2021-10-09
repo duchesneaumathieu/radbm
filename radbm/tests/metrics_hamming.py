@@ -1,5 +1,51 @@
 import unittest, torch
-from radbm.metrics import hamming_pr_curve
+from radbm.metrics import hamming_pr_curve, membership_hamming_cost, intersection_hamming_cost, superset_hamming_cost
+
+class TestHammingCosts(unittest.TestCase):
+    def test_membership_hamming_cost(self):
+        x = torch.tensor([
+            [0, 0, 0, 0],
+            [0, 0, 1, 1],
+        ])
+        
+        y = torch.tensor([
+            [[0, 1, 0, 1], [0, 0, 0, 1]], #dist = 2, 1 -> min = 1
+            [[0, 0, 0, 0], [1, 1, 0, 1]], #dist = 2, 3 -> min = 2
+        ])
+        
+        expected_costs = torch.tensor([1, 2])
+        costs = membership_hamming_cost(x, y)
+        self.assertEqual(list(expected_costs), list(costs))
+        
+    def test_intersection_hamming_cost(self):
+        x = torch.tensor([
+            [[0, 0, 0, 0], [1, 1, 1, 1]],
+            [[0, 0, 1, 1], [0, 0, 0, 1]],
+        ])
+        
+        y = torch.tensor([
+            [[0, 1, 0, 1], [0, 0, 0, 1]], #dist = 2, 1, 2, 3 -> min = 1
+            [[0, 0, 0, 0], [1, 1, 0, 1]], #dist = 2, 3, 1, 2 -> min = 1
+        ])
+        
+        expected_costs = torch.tensor([1, 1])
+        costs = intersection_hamming_cost(x, y)
+        self.assertEqual(list(expected_costs), list(costs))
+        
+    def test_superset_hamming_cost(self):
+        x = torch.tensor([
+            [[0, 0, 0, 0], [1, 1, 1, 1]],
+            [[0, 0, 1, 1], [0, 0, 0, 1]],
+        ])
+        
+        y = torch.tensor([
+            [[0, 1, 0, 1], [0, 0, 0, 1]], #dist = (2, 1), (2, 3) -> min = 1, 2 -> max = 2
+            [[0, 0, 0, 0], [1, 1, 0, 1]], #dist = (2, 3), (1, 2) -> min = 2, 1 -> max = 2
+        ])
+        
+        expected_costs = torch.tensor([2, 2])
+        costs = superset_hamming_cost(x, y)
+        self.assertEqual(list(expected_costs), list(costs))
 
 class TestHammingPRCurve(unittest.TestCase):
     def test_hamming_pr_curve(self):
@@ -43,9 +89,6 @@ class TestHammingPRCurve(unittest.TestCase):
         self.assertTrue(torch.allclose(recalls, expected_recalls[1:]))
         
         #error checks
-        with self.assertRaises(ValueError):
-            #code not same length
-            hamming_pr_curve(documents[:,:-1], queries, rel, return_valid_dists=True)
         with self.assertRaises(ValueError):
             #not enough relevances
             hamming_pr_curve(documents, queries, rel[:-1], return_valid_dists=True)

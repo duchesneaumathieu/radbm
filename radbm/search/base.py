@@ -119,13 +119,13 @@ class BaseSDS(StateObj):
             **kwargs
                 pass to batch_itersearch (see batch_itersearch for more details)
             
-        Yields
+        Returns
         ------
-            indexes
+            Iterable of set of indexes.
         """
         if type(self).batch_itersearch == BaseSDS.batch_itersearch:
             raise NotImplementedError('itersearch or batch_itersearch need to be overridden')
-        yield from self.batch_itersearch(query[None], *args, **kwargs)[0]
+        return self.batch_itersearch(query[None], *args, **kwargs)[0]
         
     def batch_itersearch(self, queries, *args, **kwargs):
         """

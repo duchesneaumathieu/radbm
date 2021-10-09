@@ -1,8 +1,9 @@
 import torch
+import torch
 import numpy as np
 from .distance_counting import conditional_distance_counts
 
-def hamming_distance(x, y, *args, **kwargs):
+def hamming_distance(x, y, dim=-1, keepdim=False):
     """
     Compute the Hamming distance.
     
@@ -10,10 +11,10 @@ def hamming_distance(x, y, *args, **kwargs):
     ----------
     x : torch.Tensor (dtype=torch.bool)
     y : torch.Tensor (dtype=torch.bool)
-    *args
-        Passed to sum
-    *kwargs
-        Passed to sum
+    dim : int (optional)
+        The dimension along which to compute the hamming distance. (default: -1)
+    keepdim : bool (optional)
+        Whether to keep the reduced dimension. (default: False)
     
     Returns
     -------
@@ -21,8 +22,61 @@ def hamming_distance(x, y, *args, **kwargs):
         The Hamming distance between x and y
     """
     
-    z = (x^y).sum(*args, **kwargs)
+    z = (x^y).sum(dim=dim, keepdim=keepdim)
     return z
+
+def membership_hamming_cost(x, y):
+    """
+    Compute the membership Hamming cost, i.e., the minimum
+    Hamming distance between x's code and the l y's codes.
+    
+    Parameters
+    ----------
+    x : torch.Tensor (dtype=torch.bool, shape=(..., n))
+    y : torch.Tensor (dtype=torch.bool, shape=(..., l, n))
+        x.unsqueeze(-2) and y should be broadcastable.
+    
+    Returns
+    -------
+    z : torch.Tensor (dtype=torch.int64)
+        The membership Hamming cost between x and y.
+    """
+    return (x[..., None, :] ^ y).sum(dim=-1).min(dim=-1)[0]
+
+def intersection_hamming_cost(x, y):
+    """
+    Compute the intersection Hamming cost, i.e., the minimum
+    Hamming distance between the k x's code and the l y's codes.
+    
+    Parameters
+    ----------
+    x : torch.Tensor (dtype=torch.bool, shape=(..., k, n))
+    y : torch.Tensor (dtype=torch.bool, shape=(..., l, n))
+        x[..., :, None, :] and y[..., None, :, :] should be broadcastable.
+    
+    Returns
+    -------
+    z : torch.Tensor (dtype=torch.int64)
+        The intersection Hamming cost between x and y.
+    """
+    return (x[..., :, None, :] ^ y[..., None, :, :]).sum(dim=-1).flatten(start_dim=-2).min(dim=-1)[0]
+
+def superset_hamming_cost(x, y):
+    """
+    Compute the superset Hamming cost.
+    
+    Parameters
+    ----------
+    x : torch.Tensor (dtype=torch.bool, shape=(..., k, n))
+    y : torch.Tensor (dtype=torch.bool, shape=(..., l, n))
+        x[..., :, None, :] and y[..., None, :, :] should be broadcastable.
+    
+    Returns
+    -------
+    z : torch.Tensor (dtype=torch.int64)
+        The superset Hamming cost between x and y.
+    """
+    return (x[..., :, None, :] ^ y[..., None, :, :]).sum(dim=-1).min(dim=-1)[0].max(dim=-1)[0]
 
 def conditional_hamming_counts(documents, queries, relevances, batch_size=100):
     """
