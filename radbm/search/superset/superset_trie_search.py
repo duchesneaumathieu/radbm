@@ -1,18 +1,22 @@
 from radbm.search.base import BaseSDS, Itersearch
 from radbm.search.basic import DictionarySearch, Trie
-
-def residual_suffix(suffix, prefix):
+    
+def residual_suffix(suffix, prefix, skip=False):
+    #residual_suffix find the (minimal) end of the prefix s.t. suffix subset (prefix union output)
+    #return None if impossible
     while True:
         if not suffix or not prefix:
             return suffix
-        elif suffix[0] < prefix[0]:
-            return None
+        if suffix[0] < prefix[0]:
+            if skip:
+                suffix = suffix[1:]
+            else: return None #for PrioritySupersetTrieSearch
         elif suffix[0] == prefix[0]:
             suffix = suffix[1:]
             prefix = prefix[1:]
         elif suffix[0] > prefix[0]:
             prefix = prefix[1:]
-
+            
 class SupersetTrieSearch(BaseSDS):
     r"""
     This implement the superset search algorithm described in `A New Method to Index and Query Sets 

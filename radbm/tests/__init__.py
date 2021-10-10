@@ -31,6 +31,7 @@ from .search_reduction_base import TestPointwiseReduction
 from .search_reduction_hamming import TestHammingReduction
 from .search_reduction_bernoulli import TestBernoulliReduction
 from .search_superset_trie import TestSupersetTrieSearch
+from .search_priority_superset_trie import TestPrioritySupersetTrieSearch
 
 
 #================ utils ================#
